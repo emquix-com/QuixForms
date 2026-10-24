@@ -1,0 +1,13 @@
+{
+  "name": "quixforms-sandbox-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@emdash-cms/plugin-test": "0.2.10",
+    "vitest": "4.1.0",
+    "vite": "8.0.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@emquix/quixforms-astro",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "author": "Webtaculos",
+  "private": true,
+  "exports": {
+    ".": "./src/index.tsx",
+    "./Form.astro": "./src/Form.astro"
+  }
+}

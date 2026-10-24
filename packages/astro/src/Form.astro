@@ -1,0 +1,9 @@
+---
+import { QuixForm } from './index';
+import './style.css';
+interface Props { id: string; siteKey: string }
+const { id, siteKey } = Astro.props;
+---
+<QuixForm id={id} client:load />
+<div class="cf-turnstile" data-sitekey={siteKey} data-action="quixforms"></div>
+<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>

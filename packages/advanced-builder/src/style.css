@@ -1,0 +1,87 @@
+.qf-builder {
+  font: 15px/1.5 system-ui;
+  color: #17253d;
+  background: #f4f6fa;
+  padding: 24px;
+}
+.qf-builder header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  background: white;
+  padding: 16px;
+  border-bottom: 1px solid #d8dfea;
+}
+.qf-builder button,
+.qf-builder input,
+.qf-builder select,
+.qf-builder textarea {
+  font: inherit;
+  padding: 8px;
+  border: 1px solid #8c97aa;
+  border-radius: 6px;
+}
+.qf-builder button {
+  cursor: pointer;
+  background: white;
+  color: #233e78;
+}
+.qf-builder button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.qf-panels {
+  display: grid;
+  grid-template-columns: 220px minmax(280px, 1fr) 280px;
+  gap: 24px;
+  margin-top: 24px;
+}
+.qf-panels aside {
+  background: white;
+  padding: 16px;
+}
+.qf-panels aside > button {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+}
+.qf-panels aside input:not([type="checkbox"]),
+.qf-panels textarea {
+  box-sizing: border-box;
+  width: 100%;
+}
+.qf-panels main {
+  background: white;
+  padding: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: auto;
+}
+.qf-panels article {
+  border: 1px solid #c8d2e2;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.qf-select {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 8px;
+}
+.qf-select small {
+  display: block;
+  color: #5d6a80;
+}
+.qf-builder :focus-visible {
+  outline: 3px solid #4d6de3;
+  outline-offset: 2px;
+}
+@media (max-width: 950px) {
+  .qf-panels {
+    grid-template-columns: 1fr;
+  }
+  .qf-panels aside {
+    max-width: none;
+  }
+}

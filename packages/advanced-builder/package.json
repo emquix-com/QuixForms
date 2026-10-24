@@ -1,0 +1,12 @@
+{
+  "name": "@emquix/quixforms-advanced",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "author": "Webtaculos",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./admin": "./src/admin.tsx"
+  }
+}

@@ -1,0 +1,63 @@
+.quixforms {
+  --qf-accent: #3459c5;
+  --qf-radius: 8px;
+  font: inherit;
+  max-width: 760px;
+  color: inherit;
+}
+.quixforms .qf-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 20px;
+}
+.quixforms .qf-field {
+  grid-column: span 6;
+}
+.quixforms .qf-half {
+  grid-column: span 3;
+}
+.quixforms .qf-third {
+  grid-column: span 2;
+}
+.quixforms label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.quixforms input:not([type="checkbox"]):not([type="radio"]),
+.quixforms textarea,
+.quixforms select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #8792a3;
+  border-radius: var(--qf-radius);
+  font: inherit;
+  background: transparent;
+  color: inherit;
+}
+.quixforms button {
+  padding: 12px 24px;
+  background: var(--qf-accent);
+  color: white;
+  border: 0;
+  border-radius: var(--qf-radius);
+  margin: 20px 10px 0 0;
+  cursor: pointer;
+}
+.quixforms small {
+  display: block;
+  margin-top: 6px;
+}
+.quixforms [aria-invalid="true"] {
+  outline: 2px solid #b42318;
+}
+.quixforms :focus-visible {
+  outline: 3px solid #5b85ef;
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .quixforms .qf-field {
+    grid-column: span 6;
+  }
+}

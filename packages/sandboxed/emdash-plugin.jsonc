@@ -1,0 +1,41 @@
+{
+  "slug": "quixforms",
+  "publisher": "webtaculos.com",
+  "license": "MIT",
+  "author": {
+    "name": "Webtaculos",
+  },
+  "description": "Powerful Forms. Effortless Building.",
+  "capabilities": ["email:send", "network:request"],
+  "allowedHosts": ["challenges.cloudflare.com"],
+  "storage": {
+    "forms": {
+      "indexes": ["title"],
+    },
+    "entries": {
+      "indexes": ["formId", "createdAt", ["formId", "createdAt"]],
+    },
+  },
+  "admin": {
+    "pages": [
+      {
+        "path": "/forms",
+        "label": "QuixForms",
+        "icon": "list",
+      },
+    ],
+    "settingsSchema": {
+      "turnstileSecret": {
+        "type": "secret",
+        "label": "Turnstile secret",
+      },
+      "turnstileSiteKey": {
+        "type": "string",
+        "label": "Turnstile site key",
+      },
+    },
+  },
+  "security": {
+    "url": "https://github.com/alexandru-b/QuixForms/security/advisories/new",
+  },
+}

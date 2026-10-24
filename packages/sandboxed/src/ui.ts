@@ -1,0 +1,344 @@
+import type { SandboxedPlugin, PluginContext } from "emdash/plugin";
+import type {
+  Block,
+  BlockResponse,
+  ButtonElement,
+  FormField,
+} from "@emdash-cms/blocks";
+import { z } from "zod";
+import { forms, save } from "./plugin";
+import {
+  fieldTypes,
+  registry,
+  template,
+  type Form,
+} from "../../core/src/index";
+const button = (
+  label: string,
+  action_id: string,
+  value?: unknown,
+): ButtonElement => ({ type: "button", label, action_id, value });
+const input = (
+  action_id: string,
+  label: string,
+  initial_value = "",
+): FormField => ({ type: "text_input", action_id, label, initial_value });
+const interaction = z.object({
+  type: z.enum(["page_load", "block_action", "form_submit"]),
+  action_id: z.string().max(2000).optional(),
+  value: z.unknown().optional(),
+  values: z.record(z.string(), z.unknown()).optional(),
+});
+const token = (
+  op: string,
+  id: string,
+  revision: string,
+  field = "",
+  page = 0,
+) => [op, id, encodeURIComponent(revision), field, page].join(":");
+async function editor(
+  c: PluginContext,
+  id: string,
+  page = 0,
+  notice?: string,
+): Promise<BlockResponse> {
+  const row = await forms(c).getVersioned(id);
+  if (!row) return overview(c);
+  const f = row.value.current;
+  const t = (op: string, field = "") =>
+    token(op, id, row.revision, field, page);
+  const blocks: Block[] = [
+    { type: "header", text: f.title },
+    {
+      type: "section",
+      text: `${f.status} · ${f.fields.length} fields · Page ${page + 1}`,
+    },
+    {
+      type: "actions",
+      elements: [
+        button("All forms", "home"),
+        button(f.status === "draft" ? "Publish" : "Unpublish", t("publish")),
+        button("Entries", t("entries")),
+        button("Embed", t("embed")),
+      ],
+    },
+    {
+      type: "form",
+      fields: [
+        input("title", "Form title", f.title),
+        input("confirmation", "Confirmation", f.confirmation),
+        input("to", "Notification recipient", f.notifications[0]?.to ?? ""),
+      ],
+      submit: { label: "Save settings", action_id: t("settings") },
+    },
+  ];
+  for (const field of f.fields.slice(page * 8, page * 8 + 8))
+    blocks.push(
+      {
+        type: "form",
+        block_id: field.id,
+        fields: [
+          input("label", "Label", field.label),
+          input("description", "Description", field.description),
+          {
+            type: "toggle",
+            action_id: "required",
+            label: "Required",
+            initial_value: field.required,
+          },
+          input("options", "Choices (one per line)", field.options.join("\n")),
+        ],
+        submit: { label: "Save field", action_id: t("field", field.id) },
+      },
+      {
+        type: "actions",
+        elements: [
+          button("Move up", t("up", field.id)),
+          button("Move down", t("down", field.id)),
+          button("Duplicate", t("duplicate", field.id)),
+          button("Delete", t("delete", field.id)),
+          button("Visibility", t("logic", field.id)),
+        ],
+      },
+    );
+  blocks.push(
+    {
+      type: "form",
+      fields: [
+        {
+          type: "select",
+          action_id: "type",
+          label: "Add a field",
+          options: fieldTypes.map((x) => ({ label: x, value: x })),
+          initial_value: "text",
+        },
+      ],
+      submit: { label: "Add field", action_id: t("add") },
+    },
+    {
+      type: "actions",
+      elements: [
+        ...(page > 0
+          ? [button("Previous", token("open", id, row.revision, "", page - 1))]
+          : []),
+        ...((page + 1) * 8 < f.fields.length
+          ? [button("Next", token("open", id, row.revision, "", page + 1))]
+          : []),
+      ],
+    },
+  );
+  return {
+    blocks,
+    ...(notice ? { toast: { type: "info" as const, message: notice } } : {}),
+  };
+}
+async function overview(
+  c: PluginContext,
+  cursor?: string,
+): Promise<BlockResponse> {
+  const page = await forms(c).query({ limit: 15, cursor });
+  return {
+    blocks: [
+      { type: "header", text: "QuixForms" },
+      { type: "section", text: "Powerful Forms. Effortless Building." },
+      {
+        type: "form",
+        fields: [input("title", "New form name")],
+        submit: { label: "Create contact form", action_id: "create" },
+      },
+      ...page.items.map(
+        ({ id, data }): Block => ({
+          type: "section",
+          text: data.current.title,
+          accessory: button("Edit", "open:" + id),
+        }),
+      ),
+      ...(page.cursor
+        ? [
+            {
+              type: "actions" as const,
+              elements: [button("Next forms", "home", page.cursor)],
+            },
+          ]
+        : []),
+    ],
+  };
+}
+export const admin: Extract<
+  NonNullable<SandboxedPlugin["routes"]>[string],
+  { handler: unknown }
+>["handler"] = async (r, c) => {
+  const p = interaction.safeParse(r.input);
+  if (!p.success)
+    return { blocks: [], toast: { type: "error", message: "Invalid action" } };
+  const a = p.data;
+  const [op, id, rev, field, pg] = a.action_id?.split(":") ?? [];
+  const page = Math.max(0, Math.min(12, Number(pg) || 0));
+  const v = a.values ?? {};
+  try {
+    if (!op || op === "home")
+      return overview(c, typeof a.value === "string" ? a.value : undefined);
+    if (op === "create") {
+      const f = template(
+        "f_" + crypto.randomUUID().replaceAll("-", ""),
+        z.string().min(1).max(200).parse(v.title),
+      );
+      await save(c, { form: f, revision: null });
+      return editor(c, f.id);
+    }
+    const row = await forms(c).getVersioned(id);
+    if (!row) return overview(c);
+    const f: Form = structuredClone(row.value.current);
+    if (op === "open") return editor(c, id, page);
+    if (op === "embed")
+      return {
+        blocks: [
+          { type: "header", text: "Embed your form" },
+          {
+            type: "section",
+            text: `Install the optional Astro companion and render <QuixForm id="${id}" client:load /> on a server-rendered page. Registry installation alone cannot inject forms into your theme. Public definition: /_emdash/api/plugins/quixforms/definition?id=${id}`,
+          },
+          { type: "actions", elements: [button("Back", "open:" + id)] },
+        ],
+      };
+    if (op === "entries") {
+      const entries = await c.storage.entries.query({
+        where: { formId: id },
+        limit: 20,
+        cursor: typeof a.value === "string" ? a.value : undefined,
+        orderBy: { createdAt: "desc" },
+      });
+      return {
+        blocks: [
+          { type: "header", text: "Submissions" },
+          {
+            type: "table",
+            columns: [
+              { key: "id", label: "Reference" },
+              { key: "data", label: "Entry" },
+            ],
+            rows: entries.items.map((e) => ({
+              id: e.id,
+              data: JSON.stringify(e.data),
+            })),
+          },
+          {
+            type: "actions",
+            elements: [
+              button("Back", "open:" + id),
+              ...(entries.cursor
+                ? [button("Next entries", a.action_id!, entries.cursor)]
+                : []),
+            ],
+          },
+        ],
+      };
+    }
+    if (op === "logic")
+      return {
+        blocks: [
+          { type: "header", text: "Field visibility" },
+          {
+            type: "section",
+            text: "Set one equality rule here. Existing nested rules are preserved until you explicitly replace them.",
+          },
+          {
+            type: "form",
+            fields: [
+              {
+                type: "select",
+                action_id: "source",
+                label: "Show when field",
+                options: [
+                  { label: "Always visible", value: "" },
+                  ...f.fields
+                    .filter((x) => x.id !== field)
+                    .map((x) => ({ label: x.label, value: x.id })),
+                ],
+              },
+              input("equals", "Equals"),
+            ],
+            submit: {
+              label: "Replace visibility rule",
+              action_id: token("rule", id, row.revision, field, page),
+            },
+          },
+        ],
+      };
+    if (decodeURIComponent(rev ?? "") !== row.revision)
+      return editor(
+        c,
+        id,
+        page,
+        "Another editor saved changes. Reloaded; your action was not applied.",
+      );
+    const index = f.fields.findIndex((x) => x.id === field);
+    if (op === "publish")
+      f.status = f.status === "draft" ? "published" : "draft";
+    else if (op === "settings") {
+      f.title = z.string().parse(v.title);
+      f.confirmation = z.string().parse(v.confirmation);
+      const to = z.string().parse(v.to);
+      if (f.notifications.length > 1)
+        throw new Error("Use API to edit multiple notifications");
+      f.notifications = to
+        ? [
+            {
+              ...f.notifications[0],
+              to,
+              subject:
+                f.notifications[0]?.subject ?? "New QuixForms submission",
+            },
+          ]
+        : [];
+    } else if (op === "add") {
+      const type = z.enum(fieldTypes).parse(v.type);
+      f.fields.push(
+        registry[type].create("f_" + crypto.randomUUID().replaceAll("-", "")),
+      );
+    } else if (index >= 0) {
+      const x = f.fields[index];
+      if (op === "field") {
+        x.label = z.string().parse(v.label);
+        x.description = z.string().parse(v.description);
+        x.required = z.boolean().parse(v.required);
+        x.options = z.string().parse(v.options).split("\n").filter(Boolean);
+      } else if (op === "rule") {
+        const source = z.string().parse(v.source);
+        if (source)
+          x.showWhen = {
+            field: source,
+            op: "eq",
+            value: z.string().parse(v.equals),
+          };
+        else delete x.showWhen;
+      } else if (op === "delete") f.fields.splice(index, 1);
+      else if (op === "duplicate")
+        f.fields.splice(index + 1, 0, {
+          ...x,
+          id: "f_" + crypto.randomUUID().replaceAll("-", ""),
+        });
+      else if (op === "up" || op === "down") {
+        const target = index + (op === "up" ? -1 : 1);
+        if (target >= 0 && target < f.fields.length)
+          [f.fields[index], f.fields[target]] = [f.fields[target], x];
+      }
+    }
+    const result = await save(c, { form: f, revision: row.revision });
+    return editor(
+      c,
+      id,
+      page,
+      result.ok ? "Saved" : "Conflict: reload and try again",
+    );
+  } catch {
+    return id
+      ? editor(
+          c,
+          id,
+          page,
+          "Could not save. Check values and conditional references.",
+        )
+      : overview(c);
+  }
+};
