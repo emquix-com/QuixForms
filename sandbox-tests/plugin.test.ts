@@ -133,6 +133,63 @@ it("stores one accepted submission through runtime routes with a stubbed CAPTCHA
       data: { ok: true, message: "Thank you" },
     });
     expect(await host.inspect.storage.list("entries")).toHaveLength(1);
+    await host.http.respond(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      Response.json({ success: false }),
+    );
+    expect(
+      await (await host.actions.routes.request("submit", request)).json(),
+    ).toMatchObject({ data: { ok: true } });
+    expect(await host.inspect.storage.list("entries")).toHaveLength(1);
+    expect(
+      await (
+        await host.actions.routes.request("submit", {
+          ...request,
+          body: { ...request.body, values: { email: "different@example.com" } },
+        })
+      ).json(),
+    ).toMatchObject({ data: { ok: false, error: "IDEMPOTENCY_CONFLICT" } });
+    const entryKey = "contact_" + request.body.key;
+    const row = (await host.transport.invokeRoute("entries/read", {
+      id: "contact",
+      key: entryKey,
+    })) as { revision: string };
+    expect(
+      await host.transport.invokeRoute("entries/update", {
+        id: "contact",
+        key: entryKey,
+        revision: row.revision,
+        patch: { status: "spam", starred: true },
+        note: "Reviewed by support",
+      }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await host.transport.invokeRoute("entries/update", {
+        id: "contact",
+        key: entryKey,
+        revision: row.revision,
+        patch: { read: true },
+      }),
+    ).toMatchObject({ ok: false, error: "CONFLICT" });
+    expect(
+      await host.transport.invokeRoute("entries/read", {
+        id: "other",
+        key: entryKey,
+      }),
+    ).toBeNull();
+    expect(
+      await host.transport.invokeRoute("entries", {
+        id: "contact",
+        status: "spam",
+        starred: "yes",
+      }),
+    ).toMatchObject({ items: [{ id: entryKey }] });
+    const detail = await host.admin.act("/forms", "entry:contact:" + entryKey, {
+      user,
+    });
+    expect(detail.blocks.length).toBeGreaterThan(0);
+    const inbox = await host.admin.act("/forms", "inbox:contact", { user });
+    expect(inbox.blocks.length).toBeGreaterThan(0);
   } finally {
     await host.dispose();
   }

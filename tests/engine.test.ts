@@ -115,3 +115,39 @@ describe("shared engine", () => {
     },
   );
 });
+it("skips hidden page and section descendants on the server", () => {
+  const f = template("contact");
+  f.fields = [
+    f.fields[0],
+    {
+      ...registry.page.create("page_two"),
+      showWhen: { field: "name", op: "eq", value: "Alice" },
+    },
+    { ...registry.text.create("private_answer"), required: true },
+    registry.page.create("page_three"),
+    registry.text.create("public_answer"),
+  ];
+  const result = validate(parseForm(f), {
+    name: "Bob",
+    private_answer: "spoof",
+    public_answer: "kept",
+  });
+  expect(result.errors).toEqual({});
+  expect(result.values).toEqual({ name: "Bob", public_answer: "kept" });
+  f.fields[1].type = "section";
+  f.fields[3].type = "section";
+  expect(
+    validate(parseForm(f), { name: "Bob", private_answer: "spoof" }).values,
+  ).toEqual({ name: "Bob" });
+});
+it("rejects a group whose visibility depends on its own descendants", () => {
+  const f = template("contact");
+  f.fields = [
+    {
+      ...registry.page.create("page"),
+      showWhen: { field: "name", op: "notEmpty" },
+    },
+    f.fields[0],
+  ];
+  expect(() => parseForm(f)).toThrow("Circular");
+});

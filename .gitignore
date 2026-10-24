@@ -6,3 +6,6 @@ coverage/
 
 .astro/
 .wrangler/
+
+playwright-report/
+test-results/

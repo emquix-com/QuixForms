@@ -8,6 +8,12 @@ import type {
 import { z } from "zod";
 import { forms, save } from "./plugin";
 import {
+  createTemplate,
+  templateCatalog,
+  type TemplateId,
+} from "../../core/src/templates";
+import { entryAction } from "./entries-ui";
+import {
   fieldTypes,
   registry,
   template,
@@ -22,7 +28,7 @@ const input = (
   action_id: string,
   label: string,
   initial_value = "",
-): FormField => ({ type: "text_input", action_id, label, initial_value });
+): Extract<FormField,{type:"text_input"}> => ({ type: "text_input", action_id, label, initial_value });
 const interaction = z.object({
   type: z.enum(["page_load", "block_action", "form_submit"]),
   action_id: z.string().max(2000).optional(),
@@ -45,6 +51,8 @@ async function editor(
   const row = await forms(c).getVersioned(id);
   if (!row) return overview(c);
   const f = row.value.current;
+  const maxFieldBytes=Math.max(1,...f.fields.map(field=>new TextEncoder().encode(JSON.stringify(field)).byteLength));
+  const perPage=Math.max(1,Math.min(8,Math.floor(120000/maxFieldBytes)));
   const t = (op: string, field = "") =>
     token(op, id, row.revision, field, page);
   const blocks: Block[] = [
@@ -72,7 +80,7 @@ async function editor(
       submit: { label: "Save settings", action_id: t("settings") },
     },
   ];
-  for (const field of f.fields.slice(page * 8, page * 8 + 8))
+  for (const field of f.fields.slice(page * perPage, page * perPage + perPage))
     blocks.push(
       {
         type: "form",
@@ -86,7 +94,14 @@ async function editor(
             label: "Required",
             initial_value: field.required,
           },
-          input("options", "Choices (one per line)", field.options.join("\n")),
+          {
+            ...input(
+              "options",
+              "Choices (one per line)",
+              field.options.join("\n"),
+            ),
+            multiline: true,
+          },
         ],
         submit: { label: "Save field", action_id: t("field", field.id) },
       },
@@ -121,7 +136,7 @@ async function editor(
         ...(page > 0
           ? [button("Previous", token("open", id, row.revision, "", page - 1))]
           : []),
-        ...((page + 1) * 8 < f.fields.length
+        ...((page + 1) * perPage < f.fields.length
           ? [button("Next", token("open", id, row.revision, "", page + 1))]
           : []),
       ],
@@ -143,8 +158,20 @@ async function overview(
       { type: "section", text: "Powerful Forms. Effortless Building." },
       {
         type: "form",
-        fields: [input("title", "New form name")],
-        submit: { label: "Create contact form", action_id: "create" },
+        fields: [
+          input("title", "New form name"),
+          {
+            type: "select",
+            action_id: "template",
+            label: "Template",
+            initial_value: "contact",
+            options: templateCatalog.map((t) => ({
+              label: t.name,
+              value: t.id,
+            })),
+          },
+        ],
+        submit: { label: "Create form", action_id: "create" },
       },
       ...page.items.map(
         ({ id, data }): Block => ({
@@ -173,19 +200,32 @@ export const admin: Extract<
     return { blocks: [], toast: { type: "error", message: "Invalid action" } };
   const a = p.data;
   const [op, id, rev, field, pg] = a.action_id?.split(":") ?? [];
-  const page = Math.max(0, Math.min(12, Number(pg) || 0));
+  const page = Math.max(0, Math.min(99, Number(pg) || 0));
   const v = a.values ?? {};
   try {
     if (!op || op === "home")
       return overview(c, typeof a.value === "string" ? a.value : undefined);
     if (op === "create") {
-      const f = template(
+      const chosen =
+        templateCatalog.find((t) => t.id === v.template)?.id ?? "contact";
+      const f = createTemplate(
+        chosen,
         "f_" + crypto.randomUUID().replaceAll("-", ""),
         z.string().min(1).max(200).parse(v.title),
       );
       await save(c, { form: f, revision: null });
       return editor(c, f.id);
     }
+    if (
+      ["entries", "inbox", "entry", "entryupdate", "entryexport"].includes(op)
+    )
+      return await entryAction(
+        c,
+        a.action_id!,
+        v,
+        a.value,
+        r.user?.id ?? "machine",
+      );
     const row = await forms(c).getVersioned(id);
     if (!row) return overview(c);
     const f: Form = structuredClone(row.value.current);
@@ -201,39 +241,6 @@ export const admin: Extract<
           { type: "actions", elements: [button("Back", "open:" + id)] },
         ],
       };
-    if (op === "entries") {
-      const entries = await c.storage.entries.query({
-        where: { formId: id },
-        limit: 20,
-        cursor: typeof a.value === "string" ? a.value : undefined,
-        orderBy: { createdAt: "desc" },
-      });
-      return {
-        blocks: [
-          { type: "header", text: "Submissions" },
-          {
-            type: "table",
-            columns: [
-              { key: "id", label: "Reference" },
-              { key: "data", label: "Entry" },
-            ],
-            rows: entries.items.map((e) => ({
-              id: e.id,
-              data: JSON.stringify(e.data),
-            })),
-          },
-          {
-            type: "actions",
-            elements: [
-              button("Back", "open:" + id),
-              ...(entries.cursor
-                ? [button("Next entries", a.action_id!, entries.cursor)]
-                : []),
-            ],
-          },
-        ],
-      };
-    }
     if (op === "logic")
       return {
         blocks: [

@@ -1,6 +1,6 @@
 # Installed dependency license inventory
 
-Generated from the final root lockfile; declared metadata is not legal certification. Sandbox harness has a separate lockfile.
+Generated from the root lockfile. Declared metadata is not a completed legal review. The sandbox harness has its own lockfile.
 
 | Package path | Version | Declared license |
 |---|---|---|
@@ -184,6 +184,7 @@ Generated from the final root lockfile; declared metadata is not legal certifica
 | node_modules/@oslojs/webauthn/node_modules/@oslojs/encoding | 1.0.0 | MIT |
 | node_modules/@oxc-project/types | 0.112.0 | MIT |
 | node_modules/@phosphor-icons/react | 2.1.10 | MIT |
+| node_modules/@playwright/test | 1.64.1 | Apache-2.0 |
 | node_modules/@portabletext/toolkit | 5.0.2 | MIT |
 | node_modules/@portabletext/types | 4.0.2 | MIT |
 | node_modules/@quansync/fs | 1.1.0 | MIT |
@@ -567,6 +568,8 @@ Generated from the final root lockfile; declared metadata is not legal certifica
 | node_modules/picocolors | 1.1.1 | ISC |
 | node_modules/picomatch | 4.0.7 | MIT |
 | node_modules/pkce-challenge | 5.0.1 | MIT |
+| node_modules/playwright | 1.64.1 | Apache-2.0 |
+| node_modules/playwright-core | 1.64.1 | Apache-2.0 |
 | node_modules/postcss | 8.5.31 | MIT |
 | node_modules/postcss/node_modules/nanoid | 3.3.20 | MIT |
 | node_modules/postgres-array | 2.0.0 | MIT |

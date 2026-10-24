@@ -1,0 +1,151 @@
+import { z } from "zod";
+import type { PluginContext } from "emdash/plugin";
+import type { StorageCollection } from "emdash";
+import {
+  idSchema,
+  csvCell,
+  type Form,
+  type Values,
+} from "../../core/src/index";
+export interface Entry {
+  formId: string;
+  form: Form;
+  values: Values;
+  createdAt: string;
+  notification: "pending" | "sent" | "failed" | "skipped";
+  status?: "inbox" | "spam" | "trash";
+  read?: boolean;
+  starred?: boolean;
+  reference?: string;
+  notes?: Array<{
+    id: string;
+    text: string;
+    createdAt: string;
+    authorId: string;
+  }>;
+  fingerprint?: string;
+}
+export const entries = (c: PluginContext) =>
+  c.storage.entries as StorageCollection<Entry>;
+export const entryKey = z
+  .string()
+  .regex(/^[a-z][a-z0-9_]{0,63}_[0-9a-f-]{36}$/)
+  .max(101);
+export const entryQuery = z
+  .object({
+    id: idSchema,
+    cursor: z.string().max(2000).optional(),
+    status: z.enum(["all", "inbox", "spam", "trash"]).default("all"),
+    starred: z.enum(["all", "yes"]).default("all"),
+    reference: z
+      .string()
+      .max(101)
+      .regex(/^[a-z0-9_-]*$/)
+      .default(""),
+  })
+  .strict();
+export async function listEntries(
+  c: PluginContext,
+  input: unknown,
+  limit = 10,
+) {
+  const q = entryQuery.parse(input);
+  return entries(c).query({
+    where: {
+      formId: q.id,
+      ...(q.status !== "all" ? { status: q.status } : {}),
+      ...(q.starred === "yes" ? { starred: true } : {}),
+      ...(q.reference ? { reference: { startsWith: q.reference } } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    limit,
+    cursor: q.cursor,
+  });
+}
+export const entryRead = z.object({ id: idSchema, key: entryKey }).strict();
+export async function readEntry(c: PluginContext, input: unknown) {
+  const q = entryRead.parse(input),
+    row = await entries(c).getVersioned(q.key);
+  return row?.value.formId === q.id ? row : null;
+}
+export const entryUpdate = z
+  .object({
+    id: idSchema,
+    key: entryKey,
+    revision: z.string().min(1).max(128),
+    patch: z
+      .object({
+        status: z.enum(["inbox", "spam", "trash"]).optional(),
+        read: z.boolean().optional(),
+        starred: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
+    note: z.string().trim().min(1).max(2000).optional(),
+  })
+  .strict()
+  .refine((q) => q.note !== undefined || Object.keys(q.patch ?? {}).length > 0);
+export async function updateEntry(
+  c: PluginContext,
+  input: unknown,
+  authorId: string,
+) {
+  const q = entryUpdate.parse(input),
+    row = await readEntry(c, { id: q.id, key: q.key });
+  if (!row) return { ok: false, error: "NOT_FOUND" };
+  if (row.revision !== q.revision) return { ok: false, error: "CONFLICT" };
+  const notes = row.value.notes ?? [];
+  if (q.note && notes.length >= 50) return { ok: false, error: "NOTE_LIMIT" };
+  const value = {
+    status: "inbox" as const,
+    read: false,
+    starred: false,
+    reference: q.key,
+    ...row.value,
+    ...q.patch,
+    ...(q.note
+      ? {
+          notes: [
+            ...notes,
+            {
+              id: crypto.randomUUID(),
+              text: q.note,
+              createdAt: new Date().toISOString(),
+              authorId,
+            },
+          ],
+        }
+      : {}),
+  };
+  const result = await entries(c).compareAndSet(q.key, q.revision, value);
+  return result.applied
+    ? { ok: true, revision: result.revision }
+    : { ok: false, error: "CONFLICT" };
+}
+// Each page includes its own header. Snapshot columns retain deleted/renamed fields.
+export function entriesCsv(rows: Array<{ id: string; data: Entry }>) {
+  const columns = new Map<string, string>();
+  for (const row of rows)
+    for (const f of row.data.form.fields)
+      columns.set(f.id, `${f.label} [${f.id}]`);
+  const keys = [...columns.keys()];
+  const header = [
+    "Reference",
+    "Submitted",
+    "Status",
+    "Notification",
+    ...columns.values(),
+  ];
+  return [
+    header,
+    ...rows.map(({ id, data }) => [
+      id,
+      data.createdAt,
+      data.status ?? "inbox",
+      data.notification,
+      ...keys.map((k) => data.values[k] ?? ""),
+    ]),
+  ]
+    .map((row) => row.map(csvCell).join(","))
+    .join("\r\n");
+}

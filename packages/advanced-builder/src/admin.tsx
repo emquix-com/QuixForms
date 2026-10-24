@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   fieldTypes,
   registry,
@@ -8,20 +8,16 @@ import {
   type Field,
   type Rule,
 } from "../../core/src/index";
+import {
+  createTemplate,
+  templateCatalog,
+  type TemplateId,
+} from "../../core/src/templates";
 import { FormView } from "../../astro/src/index";
 import "../../astro/src/style.css";
 import "./style.css";
-async function api(route: string, input?: unknown) {
-  const r = await fetch("/_emdash/api/plugins/quixforms/" + route, {
-    credentials: "same-origin",
-    headers: { "X-EmDash-Request": "1", "Content-Type": "application/json" },
-    ...(input ? { method: "POST", body: JSON.stringify(input) } : {}),
-  });
-  const body = await r.json();
-  if (!r.ok || !body.success)
-    throw new Error("Request failed. Check your permissions.");
-  return body.data;
-}
+import { api } from "./api";
+import { Entries } from "./entries";
 function Logic({
   rule,
   onChange,
@@ -173,13 +169,26 @@ export function Builder() {
     [revision, setRevision] = useState<string | null>(null),
     [selected, setSelected] = useState(""),
     [search, setSearch] = useState(""),
+    [templateId, setTemplateId] = useState<TemplateId>("contact"),
     [message, setMessage] = useState(""),
     [past, setPast] = useState<Form[]>([]),
     [future, setFuture] = useState<Form[]>([]),
     [mobile, setMobile] = useState(false),
     [preview, setPreview] = useState(false),
+    [showEntries, setShowEntries] = useState(false),
     [dirty, setDirty] = useState(false),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [autoPaused, setAutoPaused] = useState(false);
+  const latest = useRef(form);
+  latest.current = form;
+  const saving = useRef(false);
+  useEffect(() => {
+    if (!form || form.status !== "draft" || !dirty || busy || autoPaused) return;
+    const timer = setTimeout(() => {
+      void persist();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [form, dirty, busy, revision, autoPaused]);
   useEffect(() => {
     api("list")
       .then((r) => setList(r.items))
@@ -196,14 +205,16 @@ export function Builder() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
   function change(next: Form) {
-    if (!form || busy) return;
+    if (!form) return;
     setPast([...past.slice(-49), form]);
     setFuture([]);
     setForm(next);
     setDirty(true);
   }
   async function persist() {
-    if (!form || busy) return;
+    if (!form || saving.current) return;
+    const snapshot = form;
+    saving.current = true;
     setBusy(true);
     try {
       parseForm(form);
@@ -215,11 +226,14 @@ export function Builder() {
             : "Check the form configuration.",
         );
       setRevision(r.revision);
-      setDirty(false);
+      setDirty(latest.current !== snapshot);
+      setAutoPaused(false);
       setMessage("Saved");
     } catch (e) {
+      setAutoPaused(true);
       setMessage(e instanceof Error ? e.message : "Save failed");
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   }
@@ -234,14 +248,33 @@ export function Builder() {
       <div className="qf-builder">
         <h1>QuixForms</h1>
         <p>Powerful Forms. Effortless Building.</p>
+        <label>
+          Template
+          <select
+            value={templateId}
+            onChange={(e) => setTemplateId(e.target.value as TemplateId)}
+          >
+            {templateCatalog.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p>{templateCatalog.find((t) => t.id === templateId)?.description}</p>
         <button
           onClick={() => {
-            setForm(template("f_" + crypto.randomUUID().replaceAll("-", "")));
+            setForm(
+              createTemplate(
+                templateId,
+                "f_" + crypto.randomUUID().replaceAll("-", ""),
+              ),
+            );
             setRevision(null);
             setDirty(true);
           }}
         >
-          Create contact form
+          Create form
         </button>
         {list.map((x) => (
           <button
@@ -262,6 +295,8 @@ export function Builder() {
         <p role="status">{message}</p>
       </div>
     );
+  if (showEntries)
+    return <Entries formId={form.id} onBack={() => setShowEntries(false)} />;
   const field = form.fields.find((f) => f.id === selected);
   const patch = (v: Partial<Field>) =>
     change({
@@ -300,6 +335,9 @@ export function Builder() {
         >
           Redo
         </button>
+        <button disabled={dirty || busy} onClick={() => setShowEntries(true)}>
+          Entries
+        </button>
         <button onClick={() => setPreview(!preview)}>
           {preview ? "Edit" : "Preview"}
         </button>
@@ -322,6 +360,12 @@ export function Builder() {
         </button>
       </header>
       <p role="status">{message}</p>
+      {autoPaused && (
+        <p>
+          Autosave paused. Your edits are still here. Resolve the error, then
+          choose Save to retry.
+        </p>
+      )}
       <div className="qf-panels">
         <aside>
           <h2>Fields</h2>

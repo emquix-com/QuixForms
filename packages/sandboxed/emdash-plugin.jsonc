@@ -13,7 +13,7 @@
       "indexes": ["title"],
     },
     "entries": {
-      "indexes": ["formId", "createdAt", ["formId", "createdAt"]],
+      "indexes": ["formId", "createdAt", "status", "starred", "reference", ["formId", "createdAt"], ["formId", "status", "createdAt"], ["formId", "starred", "createdAt"], ["formId", "reference"]],
     },
   },
   "admin": {

@@ -11,6 +11,9 @@ import {
   type Form,
 } from "../../core/src/index";
 import { admin } from "./ui";
+import { digest, allowSubmission } from "./abuse";
+import type { Entry } from "./entries";
+import { listEntries, readEntry, updateEntry, entriesCsv } from "./entries";
 export type RecordForm = { current: Form; history: Form[] };
 export const forms = (ctx: PluginContext) =>
   ctx.storage.forms as StorageCollection<RecordForm>;
@@ -23,13 +26,23 @@ export async function save(ctx: PluginContext, input: unknown) {
   const old = await forms(ctx).getVersioned(form.id);
   if ((old?.revision ?? null) !== p.revision)
     return { ok: false as const, error: "CONFLICT" };
+  const history = [
+    ...(old?.value.history ?? []),
+    ...(old ? [old.value.current] : []),
+  ].slice(-10);
+  // Host conditional writes cap the complete document at 1 MiB, including history.
+  while (
+    history.length &&
+    new TextEncoder().encode(JSON.stringify({ current: form, history }))
+      .byteLength >
+      900 * 1024
+  )
+    history.shift();
   const result = await forms(ctx).compareAndSet(form.id, p.revision, {
     current: form,
-    history: [
-      ...(old?.value.history ?? []),
-      ...(old ? [old.value.current] : []),
-    ].slice(-10),
+    history,
   });
+
   return result.applied
     ? { ok: true as const, revision: result.revision }
     : { ok: false as const, error: "CONFLICT" };
@@ -104,10 +117,36 @@ const plugin: SandboxedPlugin = {
         const stored = await forms(c).get(x.id);
         if (stored?.current.status !== "published")
           return { ok: false, error: "UNAVAILABLE" };
+        if (
+          !(await allowSubmission(
+            c,
+            x.id,
+            z
+              .object({ ip: z.string().nullable().optional() })
+              .passthrough()
+              .safeParse(r.requestMeta).data?.ip ?? null,
+          ))
+        )
+          return { ok: false, error: "RATE_LIMIT" };
         const form = stored.current;
         const checked = validate(form, x.values);
         if (Object.keys(checked.errors).length)
           return { ok: false, error: "VALIDATION", errors: checked.errors };
+        const key = x.id + "_" + x.key;
+        const fingerprint = await digest(
+          JSON.stringify(
+            Object.fromEntries(
+              Object.entries(checked.values).sort(([a], [b]) =>
+                a.localeCompare(b),
+              ),
+            ),
+          ),
+        );
+        const existing = (await c.storage.entries.get(key)) as Entry | null;
+        if (existing)
+          return existing.fingerprint === fingerprint
+            ? { ok: true, reference: key, message: existing.form.confirmation }
+            : { ok: false, error: "IDEMPOTENCY_CONFLICT" };
         const secret = await c.settings.get<string>("turnstileSecret");
         if (!secret || !c.http)
           return { ok: false, error: "PROTECTION_UNAVAILABLE" };
@@ -137,19 +176,30 @@ const plugin: SandboxedPlugin = {
         } catch {
           return { ok: false, error: "BOT_CHECK" };
         }
-        const key = x.id + "_" + x.key;
         const created = await c.storage.entries.compareAndSet(key, null, {
+          fingerprint,
           formId: x.id,
           form,
           values: checked.values,
           createdAt: new Date().toISOString(),
           notification: "pending",
+          status: "inbox",
+          read: false,
+          starred: false,
+          reference: key,
+          notes: [],
         });
-        if (!created.applied)
-          return { ok: true, reference: key, message: form.confirmation };
-        let failed = false;
+        if (!created.applied) {
+          const winner = (await c.storage.entries.get(key)) as Entry | null;
+          return winner?.fingerprint === fingerprint
+            ? { ok: true, reference: key, message: winner.form.confirmation }
+            : { ok: false, error: "IDEMPOTENCY_CONFLICT" };
+        }
+        let failed = false,
+          attempted = 0;
         for (const n of form.notifications) {
           if (!evaluate(n.when, checked.values)) continue;
+          attempted++;
           try {
             if (!c.email) throw 0;
             await c.email.send({
@@ -167,7 +217,9 @@ const plugin: SandboxedPlugin = {
         try {
           await c.storage.entries.updateIf(key, {
             where: { notification: "pending" },
-            set: { notification: failed ? "failed" : "sent" },
+            set: {
+              notification: failed ? "failed" : attempted ? "sent" : "skipped",
+            },
           });
         } catch {}
         return { ok: true, reference: key, message: form.confirmation };
@@ -176,39 +228,34 @@ const plugin: SandboxedPlugin = {
     entries: {
       methods: ["GET"],
       permission: "plugins:manage",
+      handler: (r, c) => listEntries(c, r.input),
+    },
+    "entries/read": {
+      methods: ["GET"],
+      permission: "plugins:manage",
+      handler: (r, c) => readEntry(c, r.input),
+    },
+    "entries/update": {
+      methods: ["POST"],
+      permission: "plugins:manage",
+      request: { body: "json", maxBytes: 8192 },
       handler: async (r, c) => {
-        const p = listInput.parse(r.input);
-        return c.storage.entries.query({
-          where: { formId: p.id },
-          orderBy: { createdAt: "desc" },
-          limit: 20,
-          cursor: p.cursor,
-        });
+        try {
+          return await updateEntry(c, r.input, r.user?.id ?? "machine");
+        } catch {
+          return { ok: false, error: "INVALID_UPDATE" };
+        }
       },
     },
     export: {
       methods: ["GET"],
       permission: "plugins:manage",
       handler: async (r, c) => {
-        const p = listInput.parse(r.input);
-        const f = await forms(c).get(p.id);
-        if (!f) return { ok: false };
-        const page = await c.storage.entries.query({
-          where: { formId: p.id },
-          orderBy: { createdAt: "desc" },
-          limit: 100,
-          cursor: p.cursor,
-        });
+        const page = await listEntries(c, r.input, 10);
         return {
           ok: true,
-          csv: exportCsv(
-            f.current,
-            page.items.map(
-              (x) =>
-                (x.data as { values: Parameters<typeof exportCsv>[1][number] })
-                  .values,
-            ),
-          ),
+          csv: entriesCsv(page.items),
+          json: page.items,
           cursor: page.cursor,
         };
       },

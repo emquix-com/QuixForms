@@ -7,12 +7,12 @@ EmDash's first-party forms source was inspected at c238da2931b12ab58f6228a5a4d79
 | Target capability (WPForms Pro / Gravity Forms reference requirements) | QuixForms evidence/status |
 |---|---|
 | Structured forms, standard field editing | Available in Core and React source; shared engine tests |
-| Drag/drop and keyboard alternative | React implementation; browser tests outstanding |
+| Drag/drop and keyboard alternative | React implementation; Chromium drag/drop and move-button tests passed |
 | Conditional visibility | Nested shared engine; React visual groups; Core equality editor preserves existing groups |
 | Conditional required | Engine/API only; UI planned |
-| Multi-step rendering | Astro companion shared renderer; end-to-end test outstanding |
-| Templates | One editable contact template; broad library planned |
-| Entry management | Core paginated read and CSV API; search, notes, trash and bulk operations planned |
+| Multi-step rendering | Astro companion shared renderer; full deployed-site journey outstanding |
+| Templates | 16 shared choices including blank; 15 editable templates tested |
+| Entry management | Core and React inbox/detail, notes, read/star, spam/trash/restore, reference search and page exports; full-text search and bulk operations planned |
 | Notifications | Core fixed recipients and conditional engine; live transport test outstanding |
 | Advanced integrations and webhooks | Planned, not implemented |
 | Surveys and calculations | Planned, not implemented |

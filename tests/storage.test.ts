@@ -33,3 +33,41 @@ it("atomic storage rejects competing edits and retains revisions", async () => {
   expect(results.filter((r) => r.ok)).toHaveLength(1);
   expect(record).toMatchObject({ history: [form] });
 });
+it("bounds UTF-8 revision history below the host single-document limit", async () => {
+  let record: any = null,
+    revision = 0;
+  const ctx = {
+    storage: {
+      forms: {
+        getVersioned: async () =>
+          record ? { value: record, revision: String(revision) } : null,
+        compareAndSet: async (
+          _id: string,
+          _expected: string | null,
+          data: unknown,
+        ) => {
+          record = data;
+          return { applied: true, revision: String(++revision) };
+        },
+      },
+    },
+  } as unknown as PluginContext;
+  const form = template("large");
+  form.fields = Array.from({ length: 40 }, (_, i) => ({
+    ...form.fields[0],
+    id: "field_" + i,
+    description: "界".repeat(800),
+  }));
+  for (let i = 0; i < 15; i++)
+    expect(
+      await save(ctx, {
+        form: { ...form, title: "Revision " + i },
+        revision: i ? String(i) : null,
+      }),
+    ).toMatchObject({ ok: true });
+  expect(
+    new TextEncoder().encode(JSON.stringify(record)).byteLength,
+  ).toBeLessThanOrEqual(900 * 1024);
+  expect(record.history.length).toBeGreaterThan(0);
+  expect(record.history.length).toBeLessThan(10);
+});

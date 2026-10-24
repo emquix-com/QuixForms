@@ -13,6 +13,8 @@ npm ci
 npm run typecheck
 npm test
 npm run build
+npx playwright install chromium
+npm run test:browser
 ASTRO_TELEMETRY_DISABLED=1 npx astro build --root examples/astro
 ```
 
@@ -32,7 +34,7 @@ For development, use the generated local sandbox descriptor according to EmDash'
 
 The native descriptor factory is `quixFormsAdvanced` in `packages/advanced-builder/src/index.ts`; register it in an EmDash `live.config.ts` plugins array after making its package exports resolvable. It calls Core with the administrator's existing session. It needs a rebuild/redeployment. Package distribution and a one-command installer are not ready.
 
-For frontend development, import `packages/astro/src/Form.astro` and render `<Form id="YOUR_FORM_ID" siteKey="YOUR_TURNSTILE_SITE_KEY" />`. The host must include `@astrojs/react`. It must serve Core's same-origin routes. The wrapper loads definitions dynamically, so publishing a new form does not require rebuilding the frontend. The example is a renderer-only demo, explicitly without submission transport. Multiple embedded Turnstile forms on one page need further work.
+For frontend development, import `packages/astro/src/Form.astro` and render `<Form id="YOUR_FORM_ID" siteKey="YOUR_TURNSTILE_SITE_KEY" />`. The host must include `@astrojs/react`. It must serve Core's same-origin routes. The wrapper loads definitions dynamically, so publishing a new form does not require rebuilding the frontend. The example is a renderer-only demo, explicitly without submission transport. Each rendered form owns its CAPTCHA widget and input IDs.
 
 Core is the only data owner. Removing Advanced does not delete forms or entries. A Core registry installation cannot inject forms into an arbitrary Astro theme.
 
@@ -44,3 +46,5 @@ Core is the only data owner. Removing Advanced does not delete forms or entries.
 - [Security policy](SECURITY.md)
 
 Original code is MIT licensed. Dependency license inventory is provided separately; an inventory is not legal certification.
+
+Development repository: https://github.com/alexandru-b/QuixForms (private). Browser fixture screenshots are in `docs/screenshots`. See the release report for the current verified feature set and remaining gates.

@@ -1,52 +1,66 @@
-# QuixForms 0.1.0 development delivery
+# QuixForms 0.1.0 development report
 
-**Release decision: blocked. Neither npm nor registry publication is approved or ready.** The full requested product has not been completed. This is executable development source with tests, not a production release.
+Updated 2026-10-24. **Not ready for npm or registry publication.** This is implemented development software; the full release acceptance targets remain incomplete.
 
-## Architecture and implementation
+## Repository and architecture
 
-Sandboxed Core owns definitions, ten atomic historical snapshots and entries. Native React has no storage and uses authenticated Core HTTP APIs. The same schema, validation and nested rule evaluator power both. Astro and React preview share a renderer. See architecture.md for verified contracts.
+Repository: https://github.com/alexandru-b/QuixForms (private). Initial commit `39518b5d3da4977d4d7f70fbff49c8bf68700beb` is synced to `main`; subsequent development commits are listed in Git history. No package or public release has been published.
 
-Core source implements form creation from one contact template, field editing, pagination at eight fields, duplication, reordering, deletion with reference validation, simple visibility editing, draft/publication state, fixed-recipient notifications, confirmations, paginated entries and CSV API. Notification rules and conditional-required rules exist in the schema/engine. Advanced existing rules are preserved during unrelated Core edits. One permission-controlled read-form MCP tool is declared.
+Development API target: EmDash 1.3.1. Source reference: `c238da2931b12ab58f6228a5a4d79551d05f6d3b`. No deployed production support matrix is certified. Core owns scoped storage; the React companion uses authenticated Core routes and has no separate database. Both editors use one schema, validation engine, templates and conditional rules. React preview and Astro rendering share FormView.
 
-Advanced source implements a three-panel editor, searchable catalog, native HTML drag/drop reorder and insertion, click-to-add, move buttons, field settings, nested visual rules, undo/redo, responsive preview, explicit save/publication and unsaved-change browser protection. It does not implement autosave, revisions UI, reusable groups, row resizing or a full entries dashboard.
+## Implemented capabilities
 
-Field configurations: text, paragraph, email, name (single input), phone (unformatted text), HTTP(S) URL, number, select, radio, checkbox group, consent, hidden, plain-text content, section and page break. Renderer/schema tests cover all 15 catalog types, but full browser-submit-store-export coverage for every type is outstanding. Consequently none is certified production-ready. Rich HTML is intentionally absent.
+| Capability | Implementation and limits |
+|---|---|
+| Definition editing | Core and React; strict schema, stable IDs, atomic optimistic concurrency |
+| History | Up to ten snapshots, pruned to keep the entire record under 900 KiB; restore UI pending |
+| Templates | 16 shared choices including blank; 15 actual form templates; all parse and accept representative valid submissions in tests |
+| Core editor | Up to eight fields per page, reduced for large UTF-8 configurations, labels, descriptions, required flags, choices, duplicate/delete/reorder, draft/publish, equality visibility editor |
+| Advanced editor | Three panels, search, drag/drop, accessible move buttons, field options, nested logic, undo/redo, responsive preview |
+| Autosave | Debounced for drafts, revision-protected; preserves edits during an in-flight save; pauses after conflicts/errors |
+| Conditional visibility | Nested engine; sections span to next section/page, pages span to next page; hidden descendants stripped server-side; cycles rejected |
+| Conditional required | Shared engine/API; full editing UI pending |
+| Rendering | Dynamic definitions; isolated styles and input IDs, multi-step navigation; no theme injection by Core |
+| Spam protection | Server Turnstile action/hostname verification, honeypot request field, 64 KiB body cap, bounded atomic rate limiter |
+| Retries | Stable browser UUID for unchanged answers; server binds UUID to normalized payload hash; duplicate accepted submissions do not resend notifications |
+| Submissions | Core and React inboxes, detail views, read/star controls, notes, spam/trash/restore, pagination, reference-prefix search |
+| Exports | Authenticated cursor-paginated CSV/JSON; snapshot-based columns preserve deleted fields; CSV formula neutralization. React downloads one page, Core displays bounded CSV |
+| Notifications | Fixed administrator recipients, conditional engine, EmDash transport; failed email does not undo accepted entries; zero matched notifications are marked skipped |
+| MCP | Authorized read-form tool only |
 
-Integrations implemented in source: EmDash email, Turnstile and read-form MCP. Live email/Turnstile transport testing remains outstanding. QuixMail is neither required nor separately tested.
+Fields: text, paragraph, email, single-input name, unformatted phone, HTTP(S) URL, number, select, radio, checkbox group, consent, hidden, plain-text content, section and page break. All 15 field configurations have schema/render coverage, but not every field has a complete browser-submit-store-export journey. No field is certified production-ready yet.
 
-## Verification evidence
+Templates: simple/advanced contact, newsletter, quote, job application without uploads, event registration without payments, appointment request with textual dates, customer feedback using choices, support request, product inquiry, lead generation, multi-step inquiry, business registration, service request, volunteer application, plus blank. No specialized survey, payment or file template is advertised.
 
-- TypeScript checking passed against EmDash 1.3.1.
-- 32 unit/render/storage-adapter tests passed (initial toolchain Vitest 3.2.4); these include conditional stripping, cycles, schema versions, invalid values, CSV injection, text escaping and concurrent revision rejection.
-- Official plugin CLI 0.13.4 built the runtime, manifest and descriptor, including MCP route validation.
-- Actual Astro 6.0.8 demo build completed, producing one static renderer-demo page. This is not a real EmDash end-to-end submission test.
-- Official local Worker Loader/D1 sandbox: form save/publication/read/invalid-submit test passed. Production dispatcher test passed for unauthenticated access (401), missing CSRF (403), subscriber denial (403), administrator access (200), and forbidden method (405). These are local runtime tests, not deployed Cloudflare tests.
-- No deployed Node EmDash site, deployed Cloudflare Worker, live email delivery or actual Turnstile submission has been validated. No real browser drag/drop/accessibility or install/remove/upgrade test has passed yet.
+## Executed validation
 
-## Required before release
+Commands: `npm run typecheck`, `npm test`, `npm run build`, `npm run test:browser`, and `cd sandbox-tests && npm test`.
 
-1. Complete successful live submission and cross-level/browser journeys, using the production sandbox and authenticated route dispatcher. Cover RBAC, CSRF, cross-tenant access, private exports and failure recovery.
-2. Repair CAPTCHA instance isolation and retries; implement bounded rate limiting, retention and idempotent delivery recovery. Current inline email has at-most-one attempt with possible pending status on process interruption.
-3. Build a usable searchable inbox with entry detail, notes, spam/trash, bulk operations, export UI and erasure tools. Current entries table uses raw JSON text and is not the target UX.
-4. Complete template library, Core nested logic editing, configuration screens, React autosave/conflict resolution, navigation and revision restore.
-5. Test and package standalone workspace dependencies: current source imports cross package directories. All packages are private to prevent accidental publication. CLI installer and safe config transform do not exist.
-6. Verify publisher ownership and actual security contact, dependency licenses and advisories, registry install/uninstall and npm packaging. The proposed security URL is not yet operational.
-7. Add real screenshots, accessibility audit, browser test suite and supported platform matrix.
+- Unit/render/storage tests cover strict schemas, cycles, hidden values, CSV injection, stored text escaping, optimistic concurrency, rate limiting, entry updates, cross-form rejection, Block Kit validity, templates and UTF-8 history bounds. Final counts are recorded in the commit summary below.
+- Official CLI 0.13.4 builds Core runtime, descriptor and manifest.
+- Official local Worker Loader/D1 harness exercises real sandbox serialization and storage, host authentication/CSRF/permissions/method checks, successful submission, replay after CAPTCHA consumption, changed-payload replay rejection, entry status/notes/conflicts, indexed filters and host-validated inbox/detail pages. Three tests contain these assertions.
+- Chromium tests use actual built Astro pages with explicitly mocked Core and CAPTCHA endpoints. They cover CAPTCHA isolation, input IDs, lost-response retries, builder editing, preview, API CSRF header, keyboard reordering, real drag/drop and autosave during in-flight requests. These browser tests and the real sandbox tests are separate boundaries, not one fully integrated deployed-site journey.
+- Screenshot: `docs/screenshots/builder.png`, captured from the real browser fixture.
+- Root npm audit evidence: `docs/root-audit.json`. The separately installed official test harness still has the advisories recorded in `docs/harness-audit.json`; it requires remediation/assessment. Audit counts are not proof of application security.
 
-Payments, private uploads, surveys, calculations, webhook delivery, direct marketing integrations, save/resume, conversational mode, analytics and AI generation are deferred and not advertised as working.
+No live email or live Turnstile integration test, deployed Cloudflare test, deployed Node EmDash site, complete accessibility audit, or installer/upgrade/removal test has passed yet.
 
-## Repository and versions
+## Material limits and remaining work
 
-Local repository: /workspace/QuixForms. GitHub metadata lookup for alexandru-b/QuixForms returned 404; this does not establish availability or permissions. No remote repository was created or pushed. EmDash source reference: c238da2931b12ab58f6228a5a4d79551d05f6d3b. Package versions and integrity hashes are captured in package-lock.json; harness dependencies have a separate lockfile. No supported production EmDash version is claimed, only a 1.3.1 development API target.
+1. Finish combined browser-to-real-EmDash journeys, including cross-interface roundtrips and platform deployment tests. Browser fixtures currently mock API transport.
+2. Package workspace dependencies independently; current imports cross source directories. All npm packages remain private. The safe installer does not yet exist.
+3. Complete Core nested rule editor, field settings, notifications/confirmations screens, revisions UI and form overview pagination in React. Existing advanced settings are preserved during unrelated Core changes.
+4. Published forms change only after explicit Save published; autosave applies to drafts. A separate working draft/published snapshot workflow is not implemented. Autosave conflict handling pauses safely; a polished merge/reload experience remains pending.
+5. Finish full-text entry search, bulk actions, retention/erasure and complete export aggregation. Search currently means reference-prefix search only. Existing pre-inbox entries without status/reference metadata remain visible under All; updating an entry normalizes metadata. A bulk migration is pending.
+6. Rate limits are 120 attempts per form per minute and 20 per hashed client bucket. The fixed 64-bucket scheme stores no IP addresses and bounds storage, but collisions can conservatively throttle unrelated clients; missing IPs share an unknown bucket. Host edge rate limiting is still recommended.
+7. Email delivery is inline and attempted once. Interruption can leave notification status pending; durable delivery jobs and retries are not implemented.
+8. Finish narrow-screen entry tables, automated accessibility checks and deeper UI review. Core shows the latest five notes; React shows all notes. Notes are limited to 50 per entry.
+9. Verify publisher identity/security reporting, license inventory, remaining harness advisories, and registry/npm installation before release.
 
-Public release by November 30, 2026 remains a target subject to completing these gates. Recommended next work is a real authenticated EmDash end-to-end harness, followed by the inbox and installer, before adding more field types.
+Payments, uploads, signatures, dedicated surveys, calculations, webhooks, marketing integrations, save/resume, conversational presentation, conversion analytics and AI generation remain unimplemented. QuixMail is optional and not separately tested. No automatic GDPR compliance claim is made.
 
-## Final toolchain verification
+Target public release remains November 30, 2026 subject to the above gates.
 
-TypeScript and 33 tests pass on Vitest 5.0.5, including official Block Kit validation of the paginated 100-field editor. The Astro demo builds on Astro 7.4.2 with @astrojs/react 7.1.1. Zod is pinned and overridden throughout the root tree to 4.6.6 to address GHSA-mrhx-c7xc-m3w5. Root npm audit reports zero advisories after upgrades; this is not a security certification. The isolated harness has its own dependency tree and must be audited separately.
+Final local unit count for this continuation: **57 tests passed**, plus TypeScript and the official Core build. Browser/runtime results are documented above and in their checked-in suites.
 
-The isolated official sandbox harness audit reports 19 advisories: 12 high, 6 moderate, 1 low, zero critical. See harness-audit.json. These are development-runtime dependencies, not bundled into Core. They still require remediation/assessment before public release. Root audit evidence is root-audit.json.
-
-## Successful local submission regression
-
-All three official sandbox/runtime tests now pass, including a POST through the real dispatcher, Worker Loader and D1 storage with a stubbed successful Turnstile response. This test exposed and fixed null-prototype object serialization at the sandbox boundary. The CAPTCHA provider was stubbed; this is not a live CAPTCHA verification or a browser end-to-end test. The accepted entry was inspected in real local plugin storage. Notifications were not enabled in this fixture.
+Final browser count: **4 Chromium tests passed**. Final official sandbox count: **3 tests passed**, with the workflow assertions described above. The first GitHub Actions run for the initial commit also passed; later runs should be checked against their exact commit.

@@ -85,3 +85,75 @@
     max-width: none;
   }
 }
+.qf-panels {
+  align-items: start;
+}
+.qf-panels main {
+  margin: 0 auto;
+}
+.qf-panels aside > label {
+  display: block;
+  margin: 0 0 18px;
+}
+.qf-panels aside > label > input:not([type="checkbox"]),
+.qf-panels aside > label > textarea,
+.qf-panels aside > label > select {
+  display: block;
+  margin-top: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.qf-builder article > button:not(.qf-select) {
+  margin: 4px 4px 0 0;
+}
+.qf-builder table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 24px;
+  background: white;
+}
+.qf-builder th,
+.qf-builder td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #d8dfea;
+  overflow-wrap: anywhere;
+}
+.qf-builder section {
+  background: white;
+  padding: 24px;
+}
+.qf-builder section > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.qf-builder dt {
+  font-weight: 600;
+  margin-top: 16px;
+}
+.qf-builder dd {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.qf-builder section textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 100px;
+}
+.qf-builder form {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.qf-builder form label {
+  display: grid;
+  gap: 6px;
+}
+.qf-builder .quixforms {
+  display: block;
+}

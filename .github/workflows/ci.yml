@@ -14,6 +14,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: ASTRO_TELEMETRY_DISABLED=1 npx astro build --root examples/astro
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
       - run: npm ci
         working-directory: sandbox-tests
       - run: npm test

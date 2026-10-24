@@ -136,10 +136,15 @@ export function parseForm(input: unknown): Form {
   const f = formSchema.parse(input);
   const ids = new Set(f.fields.map((x) => x.id));
   if (ids.size !== f.fields.length) throw new Error("Duplicate field ID");
+  const parents = fieldParents(f);
   const graph = new Map(
     f.fields.map((x) => [
       x.id,
-      [...dependencies(x.showWhen), ...dependencies(x.requiredWhen)],
+      [
+        ...dependencies(x.showWhen),
+        ...dependencies(x.requiredWhen),
+        ...(parents.get(x.id) ?? []),
+      ],
     ]),
   );
   const visited = new Set<string>();
@@ -207,21 +212,66 @@ export function evaluate(r: Rule | undefined, v: Values): boolean {
       return typeof a === "string" && a.endsWith(String(b));
   }
 }
-export function visibleValues(form: Form, raw: Values): Values {
-  const out: Values = {},
-    done = new Set<string>();
-  const resolve = (f: Field) => {
-    if (done.has(f.id)) return;
-    for (const id of dependencies(f.showWhen)) {
-      const dep = form.fields.find((x) => x.id === id);
-      if (dep) resolve(dep);
+/** Sections span until the next section/page; pages span until the next page. */
+export function fieldParents(form: Form) {
+  const parents = new Map<string, string[]>();
+  let page: string | undefined, section: string | undefined;
+  for (const f of form.fields) {
+    if (f.type === "page") {
+      parents.set(f.id, []);
+      page = f.id;
+      section = undefined;
+    } else if (f.type === "section") {
+      parents.set(f.id, page ? [page] : []);
+      section = f.id;
+    } else
+      parents.set(f.id, [
+        ...(page ? [page] : []),
+        ...(section ? [section] : []),
+      ]);
+  }
+  return parents;
+}
+export function visibility(form: Form, raw: Values) {
+  const values: Values = {},
+    visible = new Set<string>(),
+    done = new Set<string>(),
+    active = new Set<string>();
+  const fields = new Map(form.fields.map((f) => [f.id, f])),
+    parents = fieldParents(form);
+  const resolve = (id: string): boolean => {
+    if (done.has(id)) return visible.has(id);
+    if (active.has(id)) return false;
+    const f = fields.get(id);
+    if (!f) return false;
+    active.add(id);
+    let valid = true;
+    for (const dep of dependencies(f.showWhen)) {
+      if (active.has(dep)) {
+        valid = false;
+        continue;
+      }
+      resolve(dep);
     }
-    done.add(f.id);
-    if (evaluate(f.showWhen, out) && Object.hasOwn(raw, f.id))
-      out[f.id] = raw[f.id];
+    for (const parent of parents.get(id) ?? [])
+      if (!resolve(parent)) valid = false;
+    active.delete(id);
+    done.add(id);
+    if (valid && evaluate(f.showWhen, values)) {
+      visible.add(id);
+      if (
+        !["section", "page", "content"].includes(f.type) &&
+        Object.hasOwn(raw, id)
+      )
+        values[id] = raw[id];
+    }
+    return visible.has(id);
   };
-  form.fields.forEach(resolve);
-  return out;
+  form.fields.forEach((f) => resolve(f.id));
+  return { values, visible };
+}
+export function visibleValues(form: Form, raw: Values): Values {
+  return visibility(form, raw).values;
 }
 export function validate(form: Form, input: unknown) {
   const parsed = z
@@ -237,13 +287,10 @@ export function validate(form: Form, input: unknown) {
     .safeParse(input);
   if (!parsed.success)
     return { values: {} as Values, errors: { _form: "Invalid submission" } };
-  const values = visibleValues(form, parsed.data),
+  const { values, visible } = visibility(form, parsed.data),
     errors: Record<string, string> = {};
   for (const f of form.fields) {
-    if (
-      !evaluate(f.showWhen, values) ||
-      ["content", "section", "page"].includes(f.type)
-    ) {
+    if (!visible.has(f.id) || ["content", "section", "page"].includes(f.type)) {
       delete values[f.id];
       continue;
     }
