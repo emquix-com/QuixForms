@@ -6,25 +6,9 @@ import {
   csvCell,
   type Form,
   type Values,
-} from "../../core/src/index";
-export interface Entry {
-  formId: string;
-  form: Form;
-  values: Values;
-  createdAt: string;
-  notification: "pending" | "sent" | "failed" | "skipped";
-  status?: "inbox" | "spam" | "trash";
-  read?: boolean;
-  starred?: boolean;
-  reference?: string;
-  notes?: Array<{
-    id: string;
-    text: string;
-    createdAt: string;
-    authorId: string;
-  }>;
-  fingerprint?: string;
-}
+} from "@emquix/quixforms-engine";
+import type { Entry } from "@emquix/quixforms-engine/submissions";
+export type { Entry } from "@emquix/quixforms-engine/submissions";
 export const entries = (c: PluginContext) =>
   c.storage.entries as StorageCollection<Entry>;
 export const entryKey = z
@@ -148,4 +132,16 @@ export function entriesCsv(rows: Array<{ id: string; data: Entry }>) {
   ]
     .map((row) => row.map(csvCell).join(","))
     .join("\r\n");
+}
+export async function eraseEntry(c: PluginContext, input: unknown) {
+  const q = entryRead
+      .extend({ revision: z.string().min(1).max(128) })
+      .strict()
+      .parse(input),
+    row = await readEntry(c, { id: q.id, key: q.key });
+  if (!row) return { ok: false, error: "NOT_FOUND" };
+  if (row.value.status !== "trash")
+    return { ok: false, error: "TRASH_REQUIRED" };
+  const result = await entries(c).compareAndDelete(q.key, q.revision);
+  return result.applied ? { ok: true } : { ok: false, error: "CONFLICT" };
 }

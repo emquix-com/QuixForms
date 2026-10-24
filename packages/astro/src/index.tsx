@@ -8,7 +8,7 @@ import {
   type Form,
   type Values,
   type Field,
-} from "../../core/src/index";
+} from "@emquix/quixforms-engine";
 export function FieldInput({
   field: f,
   value,
@@ -147,7 +147,7 @@ export function FormView({
   const active = Math.min(page, pages.length - 1);
   return (
     <form
-      className="quixforms"
+      className={"quixforms qf-preset-" + form.appearance}
       onSubmit={async (e) => {
         e.preventDefault();
         if (submitting.current || complete) return;

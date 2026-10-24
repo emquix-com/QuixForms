@@ -9,7 +9,8 @@ import {
   exportCsv,
   idSchema,
   type Form,
-} from "../../core/src/index";
+} from "@emquix/quixforms-engine";
+import { eraseEntry } from "./entries";
 import { admin } from "./ui";
 import { digest, allowSubmission } from "./abuse";
 import type { Entry } from "./entries";
@@ -77,6 +78,40 @@ const plugin: SandboxedPlugin = {
           return await save(c, r.input);
         } catch {
           return { ok: false, error: "INVALID_DEFINITION" };
+        }
+      },
+    },
+    "revisions/restore": {
+      methods: ["POST"],
+      permission: "plugins:manage",
+      handler: async (r, c) => {
+        const q = z
+          .object({
+            id: idSchema,
+            revision: z.string().min(1).max(128),
+            index: z.number().int().min(0).max(9),
+          })
+          .strict()
+          .parse(r.input);
+        const row = await forms(c).getVersioned(q.id);
+        if (!row || row.revision !== q.revision)
+          return { ok: false, error: "CONFLICT" };
+        const snapshot = row.value.history[q.index];
+        if (!snapshot) return { ok: false, error: "NOT_FOUND" };
+        return save(c, {
+          form: { ...snapshot, status: "draft" },
+          revision: q.revision,
+        });
+      },
+    },
+    "entries/erase": {
+      methods: ["POST"],
+      permission: "plugins:manage",
+      handler: async (r, c) => {
+        try {
+          return await eraseEntry(c, r.input);
+        } catch {
+          return { ok: false, error: "INVALID_REQUEST" };
         }
       },
     },
@@ -198,7 +233,8 @@ const plugin: SandboxedPlugin = {
         let failed = false,
           attempted = 0;
         for (const n of form.notifications) {
-          if (!evaluate(n.when, checked.values)) continue;
+          if (n.enabled === false || !evaluate(n.when, checked.values))
+            continue;
           attempted++;
           try {
             if (!c.email) throw 0;

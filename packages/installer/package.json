@@ -1,0 +1,25 @@
+{
+  "name": "@emquix/quixforms-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "Webtaculos",
+  "bin": {
+    "quixforms": "src/cli.mjs"
+  },
+  "exports": {
+    ".": "./src/config.mjs"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

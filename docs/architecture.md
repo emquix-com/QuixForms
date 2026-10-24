@@ -6,7 +6,7 @@ Core is a sandboxed plugin with slug `quixforms`. It owns `forms` and `entries`.
 
 The public definition is an explicit projection excluding notifications. Only published forms are served. Submit is POST-only, limited to 64 KiB, revalidates the definition's fields, strips unknown and hidden values, requires Turnstile verification with action and hostname checks, and uses an atomic create for idempotency. Notifications go to administrator-configured addresses only; public recipient routing is deliberately absent.
 
-`getVersioned` / `compareAndSet` enforce optimistic concurrency. The current definition and up to ten historical snapshots share one byte-bounded document so history and updates commit atomically. This avoids pretending multi-record writes are transactions. Entry snapshots retain the accepted definition. Revision restoration UI remains unimplemented.
+`getVersioned` / `compareAndSet` enforce optimistic concurrency. The current definition and up to ten historical snapshots share one byte-bounded document so history and updates commit atomically. This avoids pretending multi-record writes are transactions. Entry snapshots retain the accepted definition. Both editors can restore snapshots through Core; restoration makes the form a draft.
 
 Both UIs use the same schema; React preview and public forms use the same FormView. Registry installation provides administration and APIs, not frontend injection. The Astro wrapper requires the host's React integration, a configured Turnstile site key, and a rebuild on initial integration. Subsequent public definition loads occur at runtime.
 
@@ -16,4 +16,11 @@ References in the inspected source: docs/src/content/docs/plugins/creating-plugi
 
 ## Remaining security work
 
-No release approval: retention jobs, comprehensive authenticated export runtime tests, live Turnstile integration tests, browser accessibility, and actual Node/Cloudflare deployment tests are outstanding. Atomic rate limiting, payload-bound retries and widget isolation are implemented and have focused tests. No payment or upload routes exist. The plugin currently has no arbitrary outbound destination, redirect, HTML, or expression evaluation feature.
+No release approval: retention jobs, comprehensive authenticated export runtime tests, live Turnstile integration tests, browser accessibility, and external Cloudflare deployment tests are outstanding; a real local Node production server has passed Core/React editing checks. Atomic rate limiting, payload-bound retries and widget isolation are implemented and have focused tests. No payment or upload routes exist. The plugin currently has no arbitrary outbound destination, redirect, HTML, or expression evaluation feature.
+
+
+## Distribution and native integration proof
+
+Five 0.1.0 packages are packed independently. The Core runtime bundles its shared engine. React/Astro source exports are compiled by the host's official Vite/Astro integration; native server descriptor code is prebuilt. The native entry exports the required `createPlugin`. Both descriptors register inside `emdash({...})` in Astro config. No source imports escape their package directories at runtime.
+
+The installer uses the TypeScript parser to edit a narrowly recognized config AST, refuses dynamic/ambiguous cases, checks local artifacts, backs up configuration/manifests, builds the host and restores files after failure. It does not choose a sandbox runner or deploy. The candidate was installed in a separate Node site from tarballs; real passkey-authenticated Core → React → Core editing passed against the official workerd runner.

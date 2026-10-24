@@ -6,19 +6,20 @@ import type {
   FormField,
 } from "@emdash-cms/blocks";
 import { z } from "zod";
+import { logicAction } from "./logic-ui";
 import { forms, save } from "./plugin";
 import {
   createTemplate,
   templateCatalog,
   type TemplateId,
-} from "../../core/src/templates";
+} from "@emquix/quixforms-engine/templates";
 import { entryAction } from "./entries-ui";
 import {
   fieldTypes,
   registry,
   template,
   type Form,
-} from "../../core/src/index";
+} from "@emquix/quixforms-engine";
 const button = (
   label: string,
   action_id: string,
@@ -28,7 +29,12 @@ const input = (
   action_id: string,
   label: string,
   initial_value = "",
-): Extract<FormField,{type:"text_input"}> => ({ type: "text_input", action_id, label, initial_value });
+): Extract<FormField, { type: "text_input" }> => ({
+  type: "text_input",
+  action_id,
+  label,
+  initial_value,
+});
 const interaction = z.object({
   type: z.enum(["page_load", "block_action", "form_submit"]),
   action_id: z.string().max(2000).optional(),
@@ -51,8 +57,13 @@ async function editor(
   const row = await forms(c).getVersioned(id);
   if (!row) return overview(c);
   const f = row.value.current;
-  const maxFieldBytes=Math.max(1,...f.fields.map(field=>new TextEncoder().encode(JSON.stringify(field)).byteLength));
-  const perPage=Math.max(1,Math.min(8,Math.floor(120000/maxFieldBytes)));
+  const maxFieldBytes = Math.max(
+    1,
+    ...f.fields.map(
+      (field) => new TextEncoder().encode(JSON.stringify(field)).byteLength,
+    ),
+  );
+  const perPage = Math.max(1, Math.min(8, Math.floor(120000 / maxFieldBytes)));
   const t = (op: string, field = "") =>
     token(op, id, row.revision, field, page);
   const blocks: Block[] = [
@@ -68,6 +79,8 @@ async function editor(
         button(f.status === "draft" ? "Publish" : "Unpublish", t("publish")),
         button("Entries", t("entries")),
         button("Embed", t("embed")),
+        button("Notifications", t("notifications")),
+        button("Revisions", t("revisions")),
       ],
     },
     {
@@ -75,6 +88,16 @@ async function editor(
       fields: [
         input("title", "Form title", f.title),
         input("confirmation", "Confirmation", f.confirmation),
+        {
+          type: "select",
+          action_id: "appearance",
+          label: "Appearance",
+          initial_value: f.appearance,
+          options: ["minimal", "modern", "classic", "boxed"].map((value) => ({
+            value,
+            label: value,
+          })),
+        },
         input("to", "Notification recipient", f.notifications[0]?.to ?? ""),
       ],
       submit: { label: "Save settings", action_id: t("settings") },
@@ -88,6 +111,17 @@ async function editor(
         fields: [
           input("label", "Label", field.label),
           input("description", "Description", field.description),
+          input("placeholder", "Placeholder", field.placeholder),
+          {
+            type: "select",
+            action_id: "width",
+            label: "Width",
+            initial_value: field.width,
+            options: ["full", "half", "third"].map((value) => ({
+              value,
+              label: value,
+            })),
+          },
           {
             type: "toggle",
             action_id: "required",
@@ -226,6 +260,8 @@ export const admin: Extract<
         a.value,
         r.user?.id ?? "machine",
       );
+    if (op === "logicview" || op === "logicupdate")
+      return await logicAction(c, a.action_id!, v);
     const row = await forms(c).getVersioned(id);
     if (!row) return overview(c);
     const f: Form = structuredClone(row.value.current);
@@ -241,37 +277,86 @@ export const admin: Extract<
           { type: "actions", elements: [button("Back", "open:" + id)] },
         ],
       };
-    if (op === "logic")
+    if (op === "revisions")
       return {
         blocks: [
-          { type: "header", text: "Field visibility" },
+          { type: "header", text: "Saved revisions" },
           {
             type: "section",
-            text: "Set one equality rule here. Existing nested rules are preserved until you explicitly replace them.",
+            text: "Restore creates a draft and unpublishes the form. Existing submissions are retained.",
           },
-          {
-            type: "form",
-            fields: [
-              {
-                type: "select",
-                action_id: "source",
-                label: "Show when field",
-                options: [
-                  { label: "Always visible", value: "" },
-                  ...f.fields
-                    .filter((x) => x.id !== field)
-                    .map((x) => ({ label: x.label, value: x.id })),
-                ],
+          ...row.value.history.map((snapshot, index) => ({
+            type: "section" as const,
+            text: `${index + 1}. ${snapshot.title} · ${snapshot.fields.length} fields`,
+            accessory: {
+              ...button(
+                "Restore draft",
+                token("restore", id, row.revision, String(index)),
+              ),
+              confirm: {
+                title: "Restore revision?",
+                text: "The current form will become a draft. Publish it again when ready.",
+                confirm: "Restore",
+                deny: "Cancel",
               },
-              input("equals", "Equals"),
+            },
+          })),
+          { type: "actions", elements: [button("Back", "open:" + id)] },
+        ],
+      };
+    if (op === "notifications")
+      return {
+        blocks: [
+          { type: "header", text: "Email notifications" },
+          {
+            type: "section",
+            text: "Recipients are set by administrators. Existing conditional rules are preserved when editing recipient or subject.",
+          },
+          ...f.notifications.map((n, index) => ({
+            type: "form" as const,
+            fields: [
+              input("to", "Recipient", n.to),
+              input("subject", "Subject", n.subject),
+              {
+                type: "toggle",
+                action_id: "enabled",
+                label: "Enabled",
+                initial_value: n.enabled !== false,
+              },
             ],
             submit: {
-              label: "Replace visibility rule",
-              action_id: token("rule", id, row.revision, field, page),
+              label: "Save notification",
+              action_id: token("notification", id, row.revision, String(index)),
             },
+          })),
+          {
+            type: "actions",
+            elements: [
+              ...(f.notifications.length < 5
+                ? [
+                    button(
+                      "Add notification",
+                      token("addnotification", id, row.revision),
+                    ),
+                  ]
+                : []),
+              button("Back", "open:" + id),
+            ],
           },
         ],
       };
+    if (op === "logic")
+      return logicAction(
+        c,
+        [
+          "logicview",
+          id,
+          encodeURIComponent(row.revision),
+          field,
+          "showWhen",
+        ].join(":"),
+        {},
+      );
     if (decodeURIComponent(rev ?? "") !== row.revision)
       return editor(
         c,
@@ -280,24 +365,68 @@ export const admin: Extract<
         "Another editor saved changes. Reloaded; your action was not applied.",
       );
     const index = f.fields.findIndex((x) => x.id === field);
-    if (op === "publish")
+    if (op === "restore") {
+      const restored = row.value.history[Number(field)];
+      if (!restored) throw new Error("Missing revision");
+      const result = await save(c, {
+        form: { ...restored, status: "draft" },
+        revision: row.revision,
+      });
+      return editor(
+        c,
+        id,
+        0,
+        result.ok ? "Revision restored as draft" : "Conflict",
+      );
+    }
+    if (op === "notification") {
+      const n = f.notifications[Number(field)];
+      if (!n) throw new Error("Missing notification");
+      n.to = z.email().parse(v.to);
+      n.subject = z.string().parse(v.subject);
+      n.enabled = z.boolean().parse(v.enabled);
+    } else if (op === "addnotification")
+      return {
+        blocks: [
+          {
+            type: "form",
+            fields: [
+              input("to", "Recipient"),
+              input("subject", "Subject", "New QuixForms submission"),
+            ],
+            submit: {
+              label: "Add",
+              action_id: token("createnotification", id, row.revision),
+            },
+          },
+        ],
+      };
+    else if (op === "createnotification")
+      f.notifications.push({
+        to: z.email().parse(v.to),
+        subject: z.string().parse(v.subject),
+      });
+    else if (op === "publish")
       f.status = f.status === "draft" ? "published" : "draft";
     else if (op === "settings") {
       f.title = z.string().parse(v.title);
       f.confirmation = z.string().parse(v.confirmation);
+      f.appearance = z
+        .enum(["minimal", "modern", "classic", "boxed"])
+        .parse(v.appearance);
       const to = z.string().parse(v.to);
-      if (f.notifications.length > 1)
-        throw new Error("Use API to edit multiple notifications");
-      f.notifications = to
-        ? [
-            {
-              ...f.notifications[0],
-              to,
-              subject:
-                f.notifications[0]?.subject ?? "New QuixForms submission",
-            },
-          ]
-        : [];
+
+      if (f.notifications.length <= 1)
+        f.notifications = to
+          ? [
+              {
+                ...f.notifications[0],
+                to,
+                subject:
+                  f.notifications[0]?.subject ?? "New QuixForms submission",
+              },
+            ]
+          : [];
     } else if (op === "add") {
       const type = z.enum(fieldTypes).parse(v.type);
       f.fields.push(
@@ -308,6 +437,8 @@ export const admin: Extract<
       if (op === "field") {
         x.label = z.string().parse(v.label);
         x.description = z.string().parse(v.description);
+        x.placeholder = z.string().parse(v.placeholder);
+        x.width = z.enum(["full", "half", "third"]).parse(v.width);
         x.required = z.boolean().parse(v.required);
         x.options = z.string().parse(v.options).split("\n").filter(Boolean);
       } else if (op === "rule") {

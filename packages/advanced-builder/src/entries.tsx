@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import type { Entry } from "../../sandboxed/src/entries";
+import type { Entry } from "@emquix/quixforms-engine/submissions";
 import { api } from "./api";
 export function Entries({
   formId,
@@ -181,6 +181,39 @@ export function Entries({
               </React.Fragment>
             ))}
           </dl>
+          {selected.value.status === "trash" && (
+            <button
+              disabled={busy}
+              onClick={async () => {
+                if (
+                  !window.confirm(
+                    "Permanently erase this entry and its notes? This cannot be undone.",
+                  )
+                )
+                  return;
+                setBusy(true);
+                try {
+                  const result = await api("entries/erase", {
+                    id: formId,
+                    key: selected.key,
+                    revision: selected.revision,
+                  });
+                  if (!result.ok) throw 0;
+                  setSelected(undefined);
+                  await load();
+                  setMessage("Entry permanently erased.");
+                } catch {
+                  setMessage(
+                    "Could not erase. Reload and check the entry is still in Trash.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Permanently erase entry
+            </button>
+          )}
           <h3>Internal notes</h3>
           {selected.value.notes?.map((n) => (
             <article key={n.id}>

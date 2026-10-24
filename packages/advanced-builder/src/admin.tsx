@@ -7,16 +7,17 @@ import {
   type Form,
   type Field,
   type Rule,
-} from "../../core/src/index";
+} from "@emquix/quixforms-engine";
 import {
   createTemplate,
   templateCatalog,
   type TemplateId,
-} from "../../core/src/templates";
-import { FormView } from "../../astro/src/index";
-import "../../astro/src/style.css";
+} from "@emquix/quixforms-engine/templates";
+import { FormView } from "@emquix/quixforms-astro";
+import "@emquix/quixforms-astro/style.css";
 import "./style.css";
 import { api } from "./api";
+import { Settings } from "./settings";
 import { Entries } from "./entries";
 function Logic({
   rule,
@@ -39,7 +40,7 @@ function Logic({
           })
         }
       >
-        Add visibility rule
+        Add condition group
       </button>
     );
   if ("rules" in rule)
@@ -151,9 +152,13 @@ function Logic({
         onChange={(e) =>
           onChange({
             ...rule,
-            value: ["gt", "lt"].includes(rule.op)
-              ? Number(e.target.value)
-              : e.target.value,
+            value:
+              fields.find((f) => f.id === rule.field)?.type === "consent"
+                ? e.target.value === "true"
+                : ["gt", "lt"].includes(rule.op) ||
+                    fields.find((f) => f.id === rule.field)?.type === "number"
+                  ? Number(e.target.value)
+                  : e.target.value,
           })
         }
       />
@@ -171,11 +176,13 @@ export function Builder() {
     [search, setSearch] = useState(""),
     [templateId, setTemplateId] = useState<TemplateId>("contact"),
     [message, setMessage] = useState(""),
+    [listCursor, setListCursor] = useState<string | undefined>(),
     [past, setPast] = useState<Form[]>([]),
     [future, setFuture] = useState<Form[]>([]),
     [mobile, setMobile] = useState(false),
     [preview, setPreview] = useState(false),
     [showEntries, setShowEntries] = useState(false),
+    [showSettings, setShowSettings] = useState(false),
     [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
     [autoPaused, setAutoPaused] = useState(false);
@@ -183,7 +190,8 @@ export function Builder() {
   latest.current = form;
   const saving = useRef(false);
   useEffect(() => {
-    if (!form || form.status !== "draft" || !dirty || busy || autoPaused) return;
+    if (!form || form.status !== "draft" || !dirty || busy || autoPaused)
+      return;
     const timer = setTimeout(() => {
       void persist();
     }, 1500);
@@ -191,7 +199,10 @@ export function Builder() {
   }, [form, dirty, busy, revision, autoPaused]);
   useEffect(() => {
     api("list")
-      .then((r) => setList(r.items))
+      .then((r) => {
+        setList(r.items);
+        setListCursor(r.cursor);
+      })
       .catch((e) => setMessage(e.message));
   }, []);
   useEffect(() => {
@@ -292,8 +303,44 @@ export function Builder() {
             {x.data.current.title}
           </button>
         ))}
+        {listCursor && (
+          <button
+            onClick={async () => {
+              try {
+                const result = await api(
+                  "list?cursor=" + encodeURIComponent(listCursor),
+                );
+                setList((rows) => [...rows, ...result.items]);
+                setListCursor(result.cursor);
+              } catch {
+                setMessage("Could not load more forms.");
+              }
+            }}
+          >
+            Load more forms
+          </button>
+        )}
         <p role="status">{message}</p>
       </div>
+    );
+  if (showSettings)
+    return (
+      <Settings
+        saveMessage={message}
+        busy={busy}
+        form={form}
+        revision={revision}
+        onChange={change}
+        onClose={() => setShowSettings(false)}
+        onSave={() => void persist()}
+        onRestored={(next, rev) => {
+          setForm(next);
+          setRevision(rev);
+          setDirty(false);
+          setPast([]);
+          setFuture([]);
+        }}
+      />
     );
   if (showEntries)
     return <Entries formId={form.id} onBack={() => setShowEntries(false)} />;
@@ -338,6 +385,7 @@ export function Builder() {
         <button disabled={dirty || busy} onClick={() => setShowEntries(true)}>
           Entries
         </button>
+        <button onClick={() => setShowSettings(true)}>Settings</button>
         <button onClick={() => setPreview(!preview)}>
           {preview ? "Edit" : "Preview"}
         </button>
@@ -556,10 +604,17 @@ export function Builder() {
                   <option>third</option>
                 </select>
               </label>
+              <h3>Show this field when</h3>
               <Logic
                 rule={field.showWhen}
                 fields={form.fields.filter((f) => f.id !== field.id)}
                 onChange={(r) => patch({ showWhen: r })}
+              />
+              <h3>Require this field when</h3>
+              <Logic
+                rule={field.requiredWhen}
+                fields={form.fields.filter((f) => f.id !== field.id)}
+                onChange={(r) => patch({ requiredWhen: r })}
               />
             </>
           ) : (

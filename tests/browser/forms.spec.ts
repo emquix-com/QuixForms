@@ -126,18 +126,174 @@ test("drag and drop changes field order and autosave preserves edits made during
   expect(saved[2].form.fields[0].label).toBe("Updated while saving");
   expect(saved[2].revision).toBe("2");
 });
-test('entries dashboard uses Core records for notes, moderation and exports',async({page})=>{
- const form=template('contact');const key='contact_00000000-0000-4000-8000-000000000000';let revision=1;
- let entry:any={formId:'contact',form,values:{name:'Visitor',email:'visitor@example.com',message:'Support please'},createdAt:'2026-10-24T12:00:00Z',notification:'sent',status:'inbox',notes:[]};
- await page.route('**/quixforms/list',r=>r.fulfill({json:{success:true,data:{items:[{id:'contact',data:{current:form}}]}}}));
- await page.route('**/quixforms/read?*',r=>r.fulfill({json:{success:true,data:{value:{current:form},revision:'form-1'}}}));
- await page.route('**/quixforms/entries?*',r=>r.fulfill({json:{success:true,data:{items:[{id:key,data:entry}]}}}));
- await page.route('**/quixforms/entries/read?*',r=>r.fulfill({json:{success:true,data:{value:entry,revision:String(revision)}}}));
- await page.route('**/quixforms/entries/update',r=>{const body=r.request().postDataJSON();expect(body.key).toBe(key);expect(body.revision).toBe(String(revision));revision++;entry={...entry,...body.patch,...(body.note?{notes:[{id:'note',text:body.note,authorId:'admin',createdAt:'2026-10-24'}]}:{})};return r.fulfill({json:{success:true,data:{ok:true,revision:String(revision)}}});});
- await page.route('**/quixforms/export?*',r=>r.fulfill({json:{success:true,data:{ok:true,csv:'Reference\r\n'+key,json:[{id:key,data:entry}]}}}));
- await page.goto('/builder');await page.getByRole('button',{name:'Contact us',exact:true}).click();await page.getByRole('button',{name:'Entries',exact:true}).click();
- await page.getByRole('button',{name:'Open '+key}).click();await expect(page.getByText('Support please',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Move to spam'}).click();await expect(page.getByText('Folder: spam',{exact:false})).toBeVisible();
- await page.getByLabel('New note').fill('Follow up tomorrow');await page.getByRole('button',{name:'Add note',exact:true}).click();await expect(page.getByText('Follow up tomorrow',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Back to inbox'}).click();const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export page CSV'}).click();expect((await download).suggestedFilename()).toBe('quixforms-contact-page.csv');
+test("entries dashboard uses Core records for notes, moderation and exports", async ({
+  page,
+}) => {
+  const form = template("contact");
+  const key = "contact_00000000-0000-4000-8000-000000000000";
+  let revision = 1;
+  let entry: any = {
+    formId: "contact",
+    form,
+    values: {
+      name: "Visitor",
+      email: "visitor@example.com",
+      message: "Support please",
+    },
+    createdAt: "2026-10-24T12:00:00Z",
+    notification: "sent",
+    status: "inbox",
+    notes: [],
+  };
+  await page.route("**/quixforms/list", (r) =>
+    r.fulfill({
+      json: {
+        success: true,
+        data: { items: [{ id: "contact", data: { current: form } }] },
+      },
+    }),
+  );
+  await page.route("**/quixforms/read?*", (r) =>
+    r.fulfill({
+      json: {
+        success: true,
+        data: { value: { current: form }, revision: "form-1" },
+      },
+    }),
+  );
+  await page.route("**/quixforms/entries?*", (r) =>
+    r.fulfill({
+      json: { success: true, data: { items: [{ id: key, data: entry }] } },
+    }),
+  );
+  await page.route("**/quixforms/entries/read?*", (r) =>
+    r.fulfill({
+      json: {
+        success: true,
+        data: { value: entry, revision: String(revision) },
+      },
+    }),
+  );
+  await page.route("**/quixforms/entries/update", (r) => {
+    const body = r.request().postDataJSON();
+    expect(body.key).toBe(key);
+    expect(body.revision).toBe(String(revision));
+    revision++;
+    entry = {
+      ...entry,
+      ...body.patch,
+      ...(body.note
+        ? {
+            notes: [
+              {
+                id: "note",
+                text: body.note,
+                authorId: "admin",
+                createdAt: "2026-10-24",
+              },
+            ],
+          }
+        : {}),
+    };
+    return r.fulfill({
+      json: { success: true, data: { ok: true, revision: String(revision) } },
+    });
+  });
+  await page.route("**/quixforms/export?*", (r) =>
+    r.fulfill({
+      json: {
+        success: true,
+        data: {
+          ok: true,
+          csv: "Reference\r\n" + key,
+          json: [{ id: key, data: entry }],
+        },
+      },
+    }),
+  );
+  await page.goto("/builder");
+  await page.getByRole("button", { name: "Contact us", exact: true }).click();
+  await page.getByRole("button", { name: "Entries", exact: true }).click();
+  await page.getByRole("button", { name: "Open " + key }).click();
+  await expect(page.getByText("Support please", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Move to spam" }).click();
+  await expect(page.getByText("Folder: spam", { exact: false })).toBeVisible();
+  await page.getByLabel("New note").fill("Follow up tomorrow");
+  await page.getByRole("button", { name: "Add note", exact: true }).click();
+  await expect(
+    page.getByText("Follow up tomorrow", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Back to inbox" }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export page CSV" }).click();
+  expect((await download).suggestedFilename()).toBe(
+    "quixforms-contact-page.csv",
+  );
+});
+test("settings save notifications and appearance without losing nested field rules", async ({
+  page,
+}) => {
+  const form = template("settings");
+  form.fields[2].showWhen = {
+    op: "and",
+    rules: [{ field: "name", op: "notEmpty" }],
+  };
+  let current = form,
+    revision = 1;
+  await page.route("**/quixforms/list", (r) =>
+    r.fulfill({
+      json: {
+        success: true,
+        data: { items: [{ id: form.id, data: { current } }] },
+      },
+    }),
+  );
+  await page.route("**/quixforms/read?*", (r) =>
+    r.fulfill({
+      json: {
+        success: true,
+        data: { value: { current, history: [] }, revision: String(revision) },
+      },
+    }),
+  );
+  await page.route("**/quixforms/save", (r) => {
+    const body = r.request().postDataJSON();
+    expect(body.revision).toBe(String(revision));
+    current = body.form;
+    revision++;
+    return r.fulfill({
+      json: { success: true, data: { ok: true, revision: String(revision) } },
+    });
+  });
+  await page.goto("/builder");
+  await page.getByRole("button", { name: "Contact us", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .getByLabel("Confirmation message")
+    .fill("Your request is recorded.");
+  await page
+    .getByRole("combobox", { name: "Appearance", exact: true })
+    .selectOption("boxed");
+  await page
+    .getByRole("button", { name: "Add notification", exact: true })
+    .click();
+  await page
+    .getByLabel("Recipient", { exact: true })
+    .fill("support@example.com");
+  await page.getByLabel("Enabled", { exact: true }).check();
+  await page
+    .getByRole("button", { name: "Save settings", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  expect(current.appearance).toBe("boxed");
+  expect(current.confirmation).toBe("Your request is recorded.");
+  expect(current.notifications).toMatchObject([
+    { to: "support@example.com", enabled: true },
+  ]);
+  expect(current.fields[2].showWhen).toEqual(form.fields[2].showWhen);
+  await page
+    .getByRole("button", { name: "Back to builder", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.locator(".quixforms")).toBeVisible();
 });

@@ -101,6 +101,7 @@ export const formSchema = z
         z
           .object({
             to: z.email(),
+            enabled: z.boolean().optional(),
             subject: z
               .string()
               .min(1)

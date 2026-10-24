@@ -26,17 +26,23 @@ npm ci
 npm test
 ```
 
-## Installation status
+## Manual acceptance installations
 
-Core produces `packages/sandboxed/dist/{plugin.mjs,manifest.json,index.mjs}` using the official EmDash plugin CLI. Registry identity `@webtaculos.com/quixforms` is a proposed publisher identity, not verified ownership. No registry installation is available yet. Do not present the proposed npm package names as installable published packages.
+Build `npm run build && npm run pack:candidate` to produce independently installable local npm tarballs. Build the official registry bundle with `npx emdash-plugin bundle --dir packages/sandboxed --out-dir artifacts`. No artifacts have been published.
 
-For development, use the generated local sandbox descriptor according to EmDash's local plugin installation documentation. The Core admin page is `/forms`. Configure Turnstile keys through plugin settings and configure EmDash's email transport. Public submissions fail closed without bot protection.
+Follow the [manual installation and acceptance guide](docs/manual-testing.md) for:
 
-The native descriptor factory is `quixFormsAdvanced` in `packages/advanced-builder/src/index.ts`; register it in an EmDash `live.config.ts` plugins array after making its package exports resolvable. It calls Core with the administrator's existing session. It needs a rebuild/redeployment. Package distribution and a one-command installer are not ready.
+- **Core alone:** local sandboxed installation using `install --core-only`; no React admin required.
+- **Core + Advanced:** `install --with-core`, the native React admin and Astro components.
+- Safe dry runs, config backups, removal, and testing the same forms in both editors.
 
-For frontend development, import `packages/astro/src/Form.astro` and render `<Form id="YOUR_FORM_ID" siteKey="YOUR_TURNSTILE_SITE_KEY" />`. The host must include `@astrojs/react`. It must serve Core's same-origin routes. The wrapper loads definitions dynamically, so publishing a new form does not require rebuilding the frontend. The example is a renderer-only demo, explicitly without submission transport. Each rendered form owns its CAPTCHA widget and input IDs.
+The CLI is `node packages/installer/src/cli.mjs`. It accepts `--project` and `--artifacts` absolute paths, verifies checksums and runs the site's production build. npm is tested; a full pnpm journey is pending. Complex config receives a manual fallback. Registration belongs in `astro.config.mjs`'s EmDash integration.
 
-Core is the only data owner. Removing Advanced does not delete forms or entries. A Core registry installation cannot inject forms into an arbitrary Astro theme.
+Core's admin path is `/_emdash/admin/plugins/quixforms/forms`; Advanced is `/_emdash/admin/plugins/quixforms-advanced`. Configure Turnstile through plugin settings and EmDash's email transport. Public submissions fail closed without bot protection. Core's eventual registry install will require no npm, but signed registry publication/installation is not yet verified.
+
+For public rendering, use `import Form from '@emquix/quixforms-astro/Form.astro'` and `<Form id="YOUR_FORM_ID" />` on a host with `@astrojs/react`. The component loads published definitions dynamically. See `examples/companion-page.astro` for a dynamic route. Initial native/renderer integration requires rebuilding and redeploying. Core cannot inject forms into an arbitrary theme.
+
+Core is the only data owner. Removing Advanced retains forms and entries. All packages remain private until publication approval.
 
 ## Documentation
 

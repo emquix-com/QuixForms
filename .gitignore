@@ -9,3 +9,9 @@ coverage/
 
 playwright-report/
 test-results/
+
+artifacts/
+
+.quixforms/
+examples/node-test-site/*.db*
+examples/node-test-site/uploads/

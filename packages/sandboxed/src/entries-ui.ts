@@ -5,6 +5,7 @@ import {
   listEntries,
   readEntry,
   updateEntry,
+  eraseEntry,
   entriesCsv,
 } from "./entries";
 const button = (
@@ -146,27 +147,38 @@ export async function entryDetail(
         button("Spam", action("spam")),
         button("Trash", action("trash")),
         button("Restore to inbox", action("inbox")),
+        ...(e.status === "trash"
+          ? [
+              {
+                ...button("Permanently erase", action("erase")),
+                style: "danger" as const,
+                confirm: {
+                  title: "Erase this entry?",
+                  text: "This permanently deletes the entry and its internal notes. This cannot be undone.",
+                  confirm: "Erase",
+                  deny: "Cancel",
+                  style: "danger" as const,
+                },
+              },
+            ]
+          : []),
       ],
     },
     {
       type: "fields",
-      fields: e.form.fields
-        .slice(page * 8, page * 8 + 8)
-        .map((f) => ({
-          label: f.label,
-          value: (Array.isArray(e.values[f.id])
-            ? (e.values[f.id] as string[]).join(", ")
-            : String(e.values[f.id] ?? "—")
-          ).slice(0, 4000),
-        })),
+      fields: e.form.fields.slice(page * 8, page * 8 + 8).map((f) => ({
+        label: f.label,
+        value: (Array.isArray(e.values[f.id])
+          ? (e.values[f.id] as string[]).join(", ")
+          : String(e.values[f.id] ?? "—")
+        ).slice(0, 4000),
+      })),
     },
     { type: "section", text: "Internal notes" },
-    ...(e.notes ?? [])
-      .slice(-5)
-      .map((n) => ({
-        type: "section" as const,
-        text: `${n.createdAt} · ${n.authorId}\n${n.text}`,
-      })),
+    ...(e.notes ?? []).slice(-5).map((n) => ({
+      type: "section" as const,
+      text: `${n.createdAt} · ${n.authorId}\n${n.text}`,
+    })),
     {
       type: "form",
       fields: [
@@ -248,6 +260,21 @@ export async function entryAction(
         { type: "actions", elements: [button("Back", "inbox:" + id)] },
       ],
     };
+  }
+  if (kind === "erase") {
+    const result = await eraseEntry(c, {
+      id,
+      key,
+      revision: decodeURIComponent(revision),
+    });
+    if (result.ok) return inbox(c, id);
+    return entryDetail(
+      c,
+      id,
+      key,
+      0,
+      "Could not erase. Reload and check that the entry is in Trash.",
+    );
   }
   const patch =
     kind === "read" || kind === "unread"

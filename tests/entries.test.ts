@@ -85,3 +85,33 @@ it("renders valid inbox and bounded entry details", async () => {
     expect(JSON.stringify(result).length).toBeLessThan(256 * 1024);
   }
 });
+it("requires Trash and the current revision for permanent erasure", async () => {
+  const { eraseEntry } = await import("../packages/sandboxed/src/entries");
+  expect(
+    await eraseEntry(context(), { id: "contact", key, revision: "1" }),
+  ).toMatchObject({ error: "TRASH_REQUIRED" });
+  let deleted = false;
+  const ctx = {
+    storage: {
+      entries: {
+        getVersioned: async () => ({
+          value: { ...record, status: "trash" },
+          revision: "2",
+        }),
+        compareAndDelete: async (_key: string, revision: string) => {
+          if (revision !== "2") return { applied: false };
+          deleted = true;
+          return { applied: true };
+        },
+      },
+    },
+  } as unknown as PluginContext;
+  expect(
+    await eraseEntry(ctx, { id: "contact", key, revision: "1" }),
+  ).toMatchObject({ error: "CONFLICT" });
+  expect(deleted).toBe(false);
+  expect(
+    await eraseEntry(ctx, { id: "contact", key, revision: "2" }),
+  ).toMatchObject({ ok: true });
+  expect(deleted).toBe(true);
+});

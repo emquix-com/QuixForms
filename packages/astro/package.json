@@ -7,6 +7,26 @@
   "private": true,
   "exports": {
     ".": "./src/index.tsx",
-    "./Form.astro": "./src/Form.astro"
+    "./Form.astro": "./src/Form.astro",
+    "./style.css": "./src/style.css"
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexandru-b/QuixForms.git",
+    "directory": "packages/astro"
+  },
+  "dependencies": {
+    "@emquix/quixforms-engine": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0",
+    "astro": "^7.4.2",
+    "@astrojs/react": "^7.1.1"
   }
 }

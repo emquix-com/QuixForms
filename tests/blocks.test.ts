@@ -34,8 +34,33 @@ it("validates overview and bounded 100-field editor with official Block Kit vali
     expect(result.blocks.length).toBeLessThan(30);
   }
 });
-it('reduces page size for large Unicode choice configurations',async()=>{
- const form=template('large');form.fields=Array.from({length:4},(_,i)=>({...registry.select.create('field_'+i),options:Array.from({length:100},(_,j)=>String(j)+'界'.repeat(190))}));
- const ctx={storage:{forms:{getVersioned:async()=>({value:{current:form,history:[]},revision:'rev'})}}} as unknown as PluginContext;
- const result=await admin({input:{type:'block_action',action_id:'open:large'}} as SandboxedRouteContext,ctx) as {blocks:unknown[]};expect(validateBlocks(result.blocks)).toEqual({valid:true,errors:[]});expect(new TextEncoder().encode(JSON.stringify(result)).byteLength).toBeLessThan(256*1024);
+it("reduces page size for large Unicode choice configurations", async () => {
+  const form = template("large");
+  form.fields = Array.from({ length: 4 }, (_, i) => ({
+    ...registry.select.create("field_" + i),
+    options: Array.from(
+      { length: 100 },
+      (_, j) => String(j) + "界".repeat(190),
+    ),
+  }));
+  const ctx = {
+    storage: {
+      forms: {
+        getVersioned: async () => ({
+          value: { current: form, history: [] },
+          revision: "rev",
+        }),
+      },
+    },
+  } as unknown as PluginContext;
+  const result = (await admin(
+    {
+      input: { type: "block_action", action_id: "open:large" },
+    } as SandboxedRouteContext,
+    ctx,
+  )) as { blocks: unknown[] };
+  expect(validateBlocks(result.blocks)).toEqual({ valid: true, errors: [] });
+  expect(
+    new TextEncoder().encode(JSON.stringify(result)).byteLength,
+  ).toBeLessThan(256 * 1024);
 });

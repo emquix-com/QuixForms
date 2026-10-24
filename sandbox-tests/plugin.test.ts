@@ -31,6 +31,38 @@ it("creates, publishes, reads and rejects invalid submissions across the sandbox
       page: "/forms",
     });
     expect(ui).toHaveProperty("blocks");
+    const initial = (await host.invokeRoute("read", { id: "contact" })) as {
+      revision: string;
+    };
+    expect(
+      await host.invokeRoute("save", {
+        form: { ...form, title: "Changed" },
+        revision: initial.revision,
+      }),
+    ).toMatchObject({ ok: true });
+    const current = (await host.invokeRoute("read", { id: "contact" })) as {
+      revision: string;
+    };
+    expect(
+      await host.invokeRoute("revisions/restore", {
+        id: "contact",
+        revision: initial.revision,
+        index: 0,
+      }),
+    ).toMatchObject({ ok: false, error: "CONFLICT" });
+    expect(
+      await host.invokeRoute("revisions/restore", {
+        id: "contact",
+        revision: current.revision,
+        index: 0,
+      }),
+    ).toMatchObject({ ok: true });
+    expect(await host.invokeRoute("read", { id: "contact" })).toMatchObject({
+      value: { current: { title: "Contact", status: "draft" } },
+    });
+    expect(
+      await host.invokeRoute("definition", { id: "contact" }),
+    ).toMatchObject({ ok: false });
   } finally {
     await host.dispose();
   }
@@ -190,6 +222,42 @@ it("stores one accepted submission through runtime routes with a stubbed CAPTCHA
     expect(detail.blocks.length).toBeGreaterThan(0);
     const inbox = await host.admin.act("/forms", "inbox:contact", { user });
     expect(inbox.blocks.length).toBeGreaterThan(0);
+    const latest = (await host.transport.invokeRoute("entries/read", {
+      id: "contact",
+      key: entryKey,
+    })) as { revision: string };
+    expect(
+      await host.transport.invokeRoute("entries/erase", {
+        id: "contact",
+        key: entryKey,
+        revision: latest.revision,
+      }),
+    ).toMatchObject({ ok: false });
+    expect(
+      await host.transport.invokeRoute("entries/update", {
+        id: "contact",
+        key: entryKey,
+        revision: latest.revision,
+        patch: { status: "trash" },
+      }),
+    ).toMatchObject({ ok: true });
+    const trashed = (await host.transport.invokeRoute("entries/read", {
+      id: "contact",
+      key: entryKey,
+    })) as { revision: string };
+    expect(
+      await host.transport.invokeRoute("entries/erase", {
+        id: "contact",
+        key: entryKey,
+        revision: trashed.revision,
+      }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await host.transport.invokeRoute("entries/read", {
+        id: "contact",
+        key: entryKey,
+      }),
+    ).toBeNull();
   } finally {
     await host.dispose();
   }

@@ -7,7 +7,13 @@
   },
   "devDependencies": {
     "@emdash-cms/plugin-test": "0.2.10",
-    "vitest": "4.1.0",
-    "vite": "8.0.0"
+    "vite": "8.3.5",
+    "vitest": "4.1.12"
+  },
+  "overrides": {
+    "zod": "4.6.6",
+    "miniflare": {
+      "undici": "7.30.1"
+    }
   }
 }

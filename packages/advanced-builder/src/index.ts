@@ -8,7 +8,7 @@ export function quixFormsAdvanced(): PluginDescriptor {
     adminEntry: "@emquix/quixforms-advanced/admin",
   };
 }
-export default function createPlugin() {
+export function createPlugin() {
   return definePlugin({
     id: "quixforms-advanced",
     version: "0.1.0",
@@ -18,3 +18,5 @@ export default function createPlugin() {
     },
   });
 }
+
+export default createPlugin;

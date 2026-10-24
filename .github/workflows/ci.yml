@@ -20,3 +20,10 @@ jobs:
         working-directory: sandbox-tests
       - run: npm test
         working-directory: sandbox-tests
+      - run: npm run pack:candidate
+      - run: npx emdash-plugin bundle --dir packages/sandboxed --out-dir artifacts
+      - run: node scripts/release-kit.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quixforms-0.1.0-manual-test
+          path: artifacts/quixforms-0.1.0-manual-test.tar.gz
