@@ -21,7 +21,7 @@ jobs:
       - run: npm test
         working-directory: sandbox-tests
       - run: npm run pack:candidate
-      - run: npx emdash-plugin bundle --dir packages/sandboxed --out-dir artifacts
+      - run: npm run bundle:candidate
       - run: node scripts/release-kit.mjs
       - uses: actions/upload-artifact@v4
         with:

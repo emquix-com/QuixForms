@@ -28,7 +28,7 @@ npm test
 
 ## Manual acceptance installations
 
-Build `npm run build && npm run pack:candidate` to produce independently installable local npm tarballs. Build the official registry bundle with `npx emdash-plugin bundle --dir packages/sandboxed --out-dir artifacts`. No artifacts have been published.
+Build `npm run build && npm run pack:candidate` to produce independently installable local npm tarballs. Build the official registry bundle with `npm run bundle:candidate`. No artifacts have been published.
 
 Follow the [manual installation and acceptance guide](docs/manual-testing.md) for:
 

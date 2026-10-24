@@ -16,7 +16,7 @@ From a checkout of this repository:
 npm ci
 npm run build
 npm run pack:candidate
-npx emdash-plugin bundle --dir packages/sandboxed --out-dir artifacts
+npm run bundle:candidate
 ```
 
 `artifacts/` contains five npm tarballs, `checksums.json`, and the official `quixforms-0.1.0.tar.gz` registry bundle. The CLI verifies the npm artifact checksums before installation. The registry bundle is locally validated but unsigned/unpublished; it cannot be searched for and installed from the official registry yet. Publisher ownership and publication require a separate approved step. Do not try to replace EmDash's registry verification with an arbitrary upload endpoint.

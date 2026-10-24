@@ -13,7 +13,8 @@
     "test:browser": "npm run build:packages && playwright test",
     "build:packages": "node scripts/build-packages.mjs",
     "pack:candidate": "node scripts/pack-candidate.mjs",
-    "kit:candidate": "npm run build && npm run pack:candidate && emdash-plugin bundle --dir packages/sandboxed --out-dir artifacts && node scripts/release-kit.mjs"
+    "kit:candidate": "npm run build && npm run pack:candidate && npm run bundle:candidate && node scripts/release-kit.mjs",
+    "bundle:candidate": "node scripts/bundle-candidate.mjs"
   },
   "devDependencies": {
     "@astrojs/react": "7.1.1",
