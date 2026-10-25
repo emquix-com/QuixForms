@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { Form } from "@emquix/quixforms-engine";
+import { Logic } from "./logic";
 import { api } from "./api";
 export function Settings({
   form,
@@ -74,8 +75,8 @@ export function Settings({
       <h2>Email notifications</h2>
       <p>
         Use your configured EmDash email provider. Recipients are fixed
-        administrator-approved addresses. Existing conditional rules are
-        preserved.
+        administrator-approved addresses. Route messages using conditions on
+        validated answers.
       </p>
       {form.notifications.map((n, i) => (
         <fieldset key={i}>
@@ -105,6 +106,12 @@ export function Settings({
             />
             Enabled
           </label>
+          <h3>Send this notification when</h3>
+          <Logic
+            rule={n.when}
+            fields={form.fields}
+            onChange={(when) => editNotification(i, { when })}
+          />
           <button
             onClick={() =>
               onChange({
@@ -141,6 +148,7 @@ export function Settings({
         <p key={index}>
           {index + 1}. {snapshot.title} · {snapshot.fields.length} fields{" "}
           <button
+            disabled={busy}
             onClick={async () => {
               if (
                 !window.confirm(

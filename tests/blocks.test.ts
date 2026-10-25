@@ -64,3 +64,42 @@ it("reduces page size for large Unicode choice configurations", async () => {
     new TextEncoder().encode(JSON.stringify(result)).byteLength,
   ).toBeLessThan(256 * 1024);
 });
+it("gives Block Kit forms stable identity and refreshes state only when their saved fields change", async () => {
+  let form = template("identity"),
+    revision = "1";
+  const ctx = {
+    storage: {
+      forms: {
+        getVersioned: async () => ({
+          value: { current: form, history: [] },
+          revision,
+        }),
+      },
+    },
+  } as unknown as PluginContext;
+  const render = async () =>
+    (await admin(
+      {
+        input: { type: "block_action", action_id: "open:identity" },
+      } as SandboxedRouteContext,
+      ctx,
+    )) as { blocks: Array<{ type: string; block_id?: string }> };
+  const original = await render();
+  revision = "2";
+  const unchanged = await render();
+  expect(unchanged.blocks.map((b) => b.block_id)).toEqual(
+    original.blocks.map((b) => b.block_id),
+  );
+  form = {
+    ...form,
+    fields: form.fields.map((f, i) =>
+      i === 0 ? { ...f, label: "Changed saved label" } : f,
+    ),
+  };
+  const changed = await render();
+  const before = original.blocks.filter((b) => b.type === "form"),
+    after = changed.blocks.filter((b) => b.type === "form");
+  expect(after[1].block_id).not.toBe(before[1].block_id);
+  expect(after[2].block_id).toBe(before[2].block_id);
+  expect(new Set(after.map((b) => b.block_id)).size).toBe(after.length);
+});

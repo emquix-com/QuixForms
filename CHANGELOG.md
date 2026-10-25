@@ -11,3 +11,7 @@ Added Core/React submissions inboxes, entry notes and moderation, snapshot-prese
 ### Manual acceptance candidate
 
 Added independent package exports, checksum-verified local artifacts, a TypeScript-AST installer with backups/dry-run/build rollback/removal, a clean Node example, nested Core logic and conditional-required editing, native conditional-required controls, notification/appearance settings, saved revision restore, permanent entry erasure, native overview pagination and manual acceptance instructions. Executed real passkey-authenticated Core → React → Core editing on a Node production build with the official workerd sandbox runner. Registry bundle validation passes; publication remains unapproved.
+
+### 2026-10-25 acceptance hardening
+
+Added conditional notification editors in both interfaces, whole-form draft duplication, complete React CSV/JSON exports with bounded memory, paginated Core JSON exports, readable rule operators and automated WCAG checks. Fixed Block Kit input-state reuse across screens using contextual form identities and saved-configuration fingerprints. Real installed Core → React notification editing now passes; host transport capture verifies conditional routing, and failure tests verify accepted entries survive email errors without duplicate resend.

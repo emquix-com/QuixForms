@@ -96,6 +96,52 @@ it("enforces authentication, permission and CSRF at the production dispatcher", 
         })
       ).status,
     ).toBe(403);
+    for (const route of ["read", "entries", "entries/read", "export"]) {
+      expect(
+        (
+          await host.actions.routes.request(route, {
+            method: "GET",
+            headers: { "X-EmDash-Request": "1" },
+          })
+        ).status,
+      ).toBe(401);
+      expect(
+        (
+          await host.actions.routes.request(route, {
+            method: "GET",
+            user: subscriber,
+            headers: { "X-EmDash-Request": "1" },
+          })
+        ).status,
+      ).toBe(403);
+    }
+    for (const route of [
+      "save",
+      "duplicate",
+      "revisions/restore",
+      "entries/update",
+      "entries/erase",
+    ]) {
+      expect(
+        (
+          await host.actions.routes.request(route, {
+            method: "POST",
+            body: {},
+            headers: { "X-EmDash-Request": "1" },
+          })
+        ).status,
+      ).toBe(401);
+      expect(
+        (
+          await host.actions.routes.request(route, {
+            method: "POST",
+            user: subscriber,
+            body: {},
+            headers: { "X-EmDash-Request": "1" },
+          })
+        ).status,
+      ).toBe(403);
+    }
     expect(
       (
         await host.actions.routes.request("list", {
@@ -134,6 +180,22 @@ it("stores one accepted submission through runtime routes with a stubbed CAPTCHA
       status: "published",
       fields: [{ id: "email", type: "email", label: "Email", required: true }],
       confirmation: "Thank you",
+      notifications: [
+        {
+          to: "support@example.com",
+          subject: "Accepted request",
+          when: {
+            op: "and",
+            rules: [{ field: "email", op: "contains", value: "@example.com" }],
+          },
+        },
+        { to: "disabled@example.com", subject: "Disabled", enabled: false },
+        {
+          to: "other@example.com",
+          subject: "Unmatched",
+          when: { field: "email", op: "eq", value: "other@example.com" },
+        },
+      ],
     };
     const saved = await host.actions.routes.request("save", {
       user,
@@ -165,6 +227,11 @@ it("stores one accepted submission through runtime routes with a stubbed CAPTCHA
       data: { ok: true, message: "Thank you" },
     });
     expect(await host.inspect.storage.list("entries")).toHaveLength(1);
+    expect(await host.inspect.email()).toHaveLength(1);
+    expect((await host.inspect.email())[0]).toMatchObject({
+      to: "support@example.com",
+      subject: "Accepted request",
+    });
     await host.http.respond(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
       Response.json({ success: false }),
@@ -173,6 +240,11 @@ it("stores one accepted submission through runtime routes with a stubbed CAPTCHA
       await (await host.actions.routes.request("submit", request)).json(),
     ).toMatchObject({ data: { ok: true } });
     expect(await host.inspect.storage.list("entries")).toHaveLength(1);
+    expect(await host.inspect.email()).toHaveLength(1);
+    expect((await host.inspect.email())[0]).toMatchObject({
+      to: "support@example.com",
+      subject: "Accepted request",
+    });
     expect(
       await (
         await host.actions.routes.request("submit", {
@@ -222,6 +294,71 @@ it("stores one accepted submission through runtime routes with a stubbed CAPTCHA
     expect(detail.blocks.length).toBeGreaterThan(0);
     const inbox = await host.admin.act("/forms", "inbox:contact", { user });
     expect(inbox.blocks.length).toBeGreaterThan(0);
+    expect(
+      (await host.admin.act("/forms", "notifications:contact", { user })).blocks
+        .length,
+    ).toBeGreaterThan(0);
+    const originalForCopy = (await host.transport.invokeRoute("read", {
+      id: "contact",
+    })) as { revision: string };
+    const copy = (await host.transport.invokeRoute("duplicate", {
+      id: "contact",
+      revision: originalForCopy.revision,
+    })) as { ok: boolean; id: string };
+    expect(copy.ok).toBe(true);
+    expect(
+      await host.transport.invokeRoute("read", { id: copy.id }),
+    ).toMatchObject({
+      value: {
+        current: { status: "draft", notifications: form.notifications },
+        history: [],
+      },
+    });
+    expect(
+      await host.transport.invokeRoute("entries", { id: copy.id }),
+    ).toMatchObject({ items: [] });
+    const currentForm = (await host.transport.invokeRoute("read", {
+      id: "contact",
+    })) as { revision: string };
+    const conditionAction = [
+      "logicupdate",
+      "contact",
+      encodeURIComponent(currentForm.revision),
+      "n_0",
+      "when.0",
+      "leaf",
+    ].join(":");
+    expect(
+      (
+        await host.admin.submit(
+          "/forms",
+          conditionAction,
+          { source: "email", operator: "contains", value: "example.com" },
+          { user },
+        )
+      ).blocks.length,
+    ).toBeGreaterThan(0);
+    expect(
+      await host.transport.invokeRoute("read", { id: "contact" }),
+    ).toMatchObject({
+      value: {
+        current: {
+          notifications: [
+            {
+              when: {
+                op: "and",
+                rules: [
+                  { field: "email", op: "contains", value: "example.com" },
+                ],
+              },
+            },
+            { enabled: false },
+            { to: "other@example.com" },
+          ],
+        },
+      },
+    });
+
     const latest = (await host.transport.invokeRoute("entries/read", {
       id: "contact",
       key: entryKey,

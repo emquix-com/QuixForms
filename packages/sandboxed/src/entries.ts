@@ -1,12 +1,7 @@
 import { z } from "zod";
 import type { PluginContext } from "emdash/plugin";
 import type { StorageCollection } from "emdash";
-import {
-  idSchema,
-  csvCell,
-  type Form,
-  type Values,
-} from "@emquix/quixforms-engine";
+import { idSchema, type Form, type Values } from "@emquix/quixforms-engine";
 import type { Entry } from "@emquix/quixforms-engine/submissions";
 export type { Entry } from "@emquix/quixforms-engine/submissions";
 export const entries = (c: PluginContext) =>
@@ -106,33 +101,7 @@ export async function updateEntry(
     ? { ok: true, revision: result.revision }
     : { ok: false, error: "CONFLICT" };
 }
-// Each page includes its own header. Snapshot columns retain deleted/renamed fields.
-export function entriesCsv(rows: Array<{ id: string; data: Entry }>) {
-  const columns = new Map<string, string>();
-  for (const row of rows)
-    for (const f of row.data.form.fields)
-      columns.set(f.id, `${f.label} [${f.id}]`);
-  const keys = [...columns.keys()];
-  const header = [
-    "Reference",
-    "Submitted",
-    "Status",
-    "Notification",
-    ...columns.values(),
-  ];
-  return [
-    header,
-    ...rows.map(({ id, data }) => [
-      id,
-      data.createdAt,
-      data.status ?? "inbox",
-      data.notification,
-      ...keys.map((k) => data.values[k] ?? ""),
-    ]),
-  ]
-    .map((row) => row.map(csvCell).join(","))
-    .join("\r\n");
-}
+export { entriesCsv } from "@emquix/quixforms-engine/submissions";
 export async function eraseEntry(c: PluginContext, input: unknown) {
   const q = entryRead
       .extend({ revision: z.string().min(1).max(128) })

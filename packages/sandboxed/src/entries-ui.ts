@@ -28,6 +28,7 @@ export async function inbox(
       { type: "header", text: "Submissions" },
       {
         type: "form",
+        block_id: "entry-filters:" + id,
         fields: [
           {
             type: "select",
@@ -90,7 +91,8 @@ export async function inbox(
         type: "actions",
         elements: [
           button("Back to form", "open:" + id),
-          button("Export this page", "entryexport:" + id, q),
+          button("Export CSV", "entryexport:" + id, q),
+          button("Export JSON", "entryexport:" + id + ":json", q),
           ...(page.cursor
             ? [
                 button("Next page", "inbox:" + id, {
@@ -181,6 +183,7 @@ export async function entryDetail(
     })),
     {
       type: "form",
+      block_id: "note:" + key + ":" + row.revision,
       fields: [
         {
           type: "text_input",
@@ -240,24 +243,48 @@ export async function entryAction(
       { ...(value && typeof value === "object" ? value : {}), id },
       10,
     );
-    const csv = entriesCsv(rows.items);
+    const format = key === "json" ? "json" : "csv";
+    const output =
+      format === "csv"
+        ? entriesCsv(rows.items)
+        : JSON.stringify(rows.items, null, 2);
     // Large export pages use the authenticated API, avoiding Block Kit response overflow.
     return {
       blocks: [
-        { type: "header", text: "Export submissions" },
+        {
+          type: "header",
+          text: "Export submissions — " + format.toUpperCase(),
+        },
         {
           type: "section",
-          text: "CSV export uses each entry’s saved field definitions. Copy the CSV below. For complete JSON or cursor-paginated CSV use the authenticated /export API.",
+          text: "Exports use each entry’s saved field definitions. Copy this page below or use Next export page to continue. The authenticated /export API also supports cursor pagination.",
         },
-        ...(csv.length < 50000
-          ? [{ type: "code" as const, code: csv }]
+        ...(new TextEncoder().encode(output).byteLength < 50000
+          ? [{ type: "code" as const, code: output }]
           : [
               {
                 type: "section" as const,
                 text: "This page is too large to display safely. Use the authenticated export API.",
               },
             ]),
-        { type: "actions", elements: [button("Back", "inbox:" + id)] },
+        {
+          type: "actions",
+          elements: [
+            button("Back", "inbox:" + id),
+            ...(rows.cursor
+              ? [
+                  button(
+                    "Next export page",
+                    "entryexport:" + id + (format === "json" ? ":json" : ""),
+                    {
+                      ...(value && typeof value === "object" ? value : {}),
+                      cursor: rows.cursor,
+                    },
+                  ),
+                ]
+              : []),
+          ],
+        },
       ],
     };
   }

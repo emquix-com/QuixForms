@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { entriesCsv } from "@emquix/quixforms-engine/submissions";
 import type { Entry } from "@emquix/quixforms-engine/submissions";
 import { api } from "./api";
 export function Entries({
@@ -90,32 +91,58 @@ export function Entries({
       setBusy(false);
     }
   }
-  async function download(format: "csv" | "json") {
+  async function download(format: "csv" | "json", all = false) {
     setBusy(true);
     try {
-      const result = await api("export?" + query(currentCursor));
-      if (!result.ok) throw 0;
+      let result = await api(
+        "export?" + query(all ? undefined : currentCursor),
+      );
+      if (!result.ok) throw new Error("Export failed.");
+      let exported: Array<{ id: string; data: Entry }> = result.json;
+      if (all) {
+        const cursors = new Set<string>();
+        let bytes = new TextEncoder().encode(
+          JSON.stringify(exported),
+        ).byteLength;
+        while (result.cursor) {
+          if (cursors.has(result.cursor))
+            throw new Error(
+              "Export pagination did not advance. Try page exports.",
+            );
+          cursors.add(result.cursor);
+          result = await api("export?" + query(result.cursor));
+          if (!result.ok) throw new Error("Export failed.");
+          bytes += new TextEncoder().encode(
+            JSON.stringify(result.json),
+          ).byteLength;
+          if (
+            bytes > 32 * 1024 * 1024 ||
+            exported.length + result.json.length > 10000
+          )
+            throw new Error(
+              "Export exceeds the browser limit (10,000 entries or 32 MiB). Use page exports or the authenticated API.",
+            );
+          exported.push(...result.json);
+        }
+        exported = [...new Map(exported.map((row) => [row.id, row])).values()];
+      }
+      const csv = all ? entriesCsv(exported) : result.csv;
       const url = URL.createObjectURL(
-        new Blob(
-          [
-            format === "csv"
-              ? result.csv
-              : JSON.stringify(result.json, null, 2),
-          ],
-          {
-            type:
-              format === "csv" ? "text/csv;charset=utf-8" : "application/json",
-          },
-        ),
+        new Blob([format === "csv" ? csv : JSON.stringify(exported, null, 2)], {
+          type:
+            format === "csv" ? "text/csv;charset=utf-8" : "application/json",
+        }),
       );
       const link = document.createElement("a");
       link.href = url;
-      link.download = `quixforms-${formId}-page.${format}`;
+      link.download = `quixforms-${formId}-${all ? "all" : "page"}.${format}`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessage("Exported this page. Use Next page to export more entries.");
-    } catch {
-      setMessage("Export failed.");
+      setMessage(
+        `Exported ${exported.length} entries${all ? " matching the filters" : " from this page"}.`,
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Export failed.");
     } finally {
       setBusy(false);
     }
@@ -124,7 +151,9 @@ export function Entries({
     <div className="qf-builder">
       <header>
         <h1>Submissions</h1>
-        <button onClick={onBack}>Back to builder</button>
+        <button disabled={busy} onClick={onBack}>
+          Back to builder
+        </button>
       </header>
       <p role="status">{busy ? "Working…" : message}</p>
       {selected ? (
@@ -279,6 +308,12 @@ export function Entries({
           </button>
           <button disabled={busy} onClick={() => download("json")}>
             Export page JSON
+          </button>
+          <button disabled={busy} onClick={() => download("csv", true)}>
+            Export all CSV
+          </button>
+          <button disabled={busy} onClick={() => download("json", true)}>
+            Export all JSON
           </button>
           <table>
             <thead>

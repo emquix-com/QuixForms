@@ -115,3 +115,28 @@ it("requires Trash and the current revision for permanent erasure", async () => 
   ).toMatchObject({ ok: true });
   expect(deleted).toBe(true);
 });
+import { entryAction } from "../packages/sandboxed/src/entries-ui";
+it("offers paginated JSON export without dropping the selected filters", async () => {
+  const ctx = {
+    storage: {
+      entries: {
+        query: async () => ({
+          items: [{ id: key, data: record }],
+          cursor: "next",
+          hasMore: true,
+        }),
+      },
+    },
+  } as unknown as PluginContext;
+  const response = await entryAction(
+    ctx,
+    "entryexport:contact:json",
+    {},
+    { status: "spam" },
+    "admin",
+  );
+  expect(validateBlocks(response.blocks).valid).toBe(true);
+  expect(JSON.stringify(response)).toContain("Next export page");
+  expect(JSON.stringify(response)).toContain("entryexport:contact:json");
+  expect(JSON.stringify(response)).toContain('"status":"spam"');
+});

@@ -282,6 +282,17 @@ test("settings save notifications and appearance without losing nested field rul
     .fill("support@example.com");
   await page.getByLabel("Enabled", { exact: true }).check();
   await page
+    .getByRole("button", { name: "Add condition group", exact: true })
+    .click();
+  await page
+    .getByLabel("Condition field", { exact: true })
+    .selectOption("email");
+  await page.getByLabel("Operator", { exact: true }).selectOption("contains");
+  await page
+    .getByLabel("Comparison value", { exact: true })
+    .fill("@example.com");
+
+  await page
     .getByRole("button", { name: "Save settings", exact: true })
     .click();
   await expect(page.getByRole("status")).toHaveText("Saved");
@@ -291,9 +302,122 @@ test("settings save notifications and appearance without losing nested field rul
     { to: "support@example.com", enabled: true },
   ]);
   expect(current.fields[2].showWhen).toEqual(form.fields[2].showWhen);
+  expect(current.notifications[0].when).toEqual({
+    op: "and",
+    rules: [{ field: "email", op: "contains", value: "@example.com" }],
+  });
+  await page
+    .getByRole("button", { name: "Remove condition", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Save settings", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  expect(current.notifications[0].when).toBeUndefined();
+
   await page
     .getByRole("button", { name: "Back to builder", exact: true })
     .click();
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(page.locator(".quixforms")).toBeVisible();
+});
+test("export all follows cursors and aligns fields from historical submission schemas", async ({
+  page,
+}) => {
+  const form = template("contact");
+  const newer = {
+    ...form,
+    fields: [
+      ...form.fields,
+      { ...form.fields[0], id: "new_field", label: "New field" },
+    ],
+  };
+  const one = {
+    id: "contact_00000000-0000-4000-8000-000000000001",
+    data: {
+      formId: "contact",
+      form,
+      values: { name: "=danger", email: "first@example.com", message: "First" },
+      createdAt: "2026-10-25",
+      notification: "sent",
+    },
+  };
+  const two = {
+    id: "contact_00000000-0000-4000-8000-000000000002",
+    data: {
+      formId: "contact",
+      form: newer,
+      values: {
+        name: "Second",
+        email: "second@example.com",
+        message: "Second message",
+        new_field: "Historical value",
+      },
+      createdAt: "2026-10-25",
+      notification: "skipped",
+    },
+  };
+  await page.route("**/quixforms/list", (r) =>
+    r.fulfill({
+      json: {
+        success: true,
+        data: { items: [{ id: form.id, data: { current: form } }] },
+      },
+    }),
+  );
+  await page.route("**/quixforms/read?*", (r) =>
+    r.fulfill({
+      json: {
+        success: true,
+        data: { value: { current: form }, revision: "1" },
+      },
+    }),
+  );
+  await page.route("**/quixforms/entries?*", (r) =>
+    r.fulfill({ json: { success: true, data: { items: [one] } } }),
+  );
+  const cursors: Array<string | null> = [];
+  await page.route("**/quixforms/export?*", (r) => {
+    const cursor = new URL(r.request().url()).searchParams.get("cursor");
+    cursors.push(cursor);
+    return r.fulfill({
+      json: {
+        success: true,
+        data: {
+          ok: true,
+          json: cursor ? [two] : [one],
+          cursor: cursor ? undefined : "next-export",
+        },
+      },
+    });
+  });
+  await page.goto("/builder");
+  await page.getByRole("button", { name: "Contact us", exact: true }).click();
+  await page.getByRole("button", { name: "Entries", exact: true }).click();
+  const pending = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Export all CSV", exact: true })
+    .click();
+  const download = await pending;
+  expect(download.suggestedFilename()).toBe("quixforms-contact-all.csv");
+  const stream = await download.createReadStream();
+  let content = "";
+  for await (const chunk of stream!) content += chunk.toString();
+  expect(cursors).toEqual([null, "next-export"]);
+  expect(content).toContain("'=danger");
+  expect(content).toContain("New field [new_field]");
+  expect(content).toContain("Historical value");
+  expect(content.split("\r\n")).toHaveLength(3);
+  await expect(page.getByRole("status")).toContainText("Exported 2 entries");
+});
+test('public controls and builder pass automated WCAG A/AA checks',async({page})=>{
+ const {default:AxeBuilder}=await import('@axe-core/playwright');
+ const {registry,fieldTypes}=await import('../../packages/core/src/index');
+ const form=template('accessible');form.fields=fieldTypes.filter(t=>t!=='page').map(t=>registry[t].create('field_'+t));
+ await page.route('https://challenges.cloudflare.com/**',r=>r.fulfill({contentType:'application/javascript',body:`window.turnstile={render(el,options){options.callback('test');return '1'},remove(){},reset(){}};`}));
+ await page.route('**/quixforms/definition?*',r=>r.fulfill({json:{success:true,data:{ok:true,form,siteKey:'test'}}}));
+ await page.goto('/forms');await page.getByRole('button',{name:'Submit',exact:true}).first().waitFor();
+ const publicResult=await new AxeBuilder({page}).include('.quixforms').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();expect(publicResult.violations).toEqual([]);
+ await page.route('**/quixforms/list',r=>r.fulfill({json:{success:true,data:{items:[]}}}));await page.route('**/quixforms/save',r=>r.fulfill({json:{success:true,data:{ok:true,revision:'1'}}}));
+ await page.goto('/builder');await page.getByRole('button',{name:'Create form',exact:true}).click();await page.locator('.qf-select').first().click();const builderResult=await new AxeBuilder({page}).include('.qf-builder').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();expect(builderResult.violations).toEqual([]);
 });

@@ -12,8 +12,8 @@ EmDash's first-party forms source was inspected at c238da2931b12ab58f6228a5a4d79
 | Conditional required | Available in both Core and React: shared engine and visual controls |
 | Multi-step rendering | Astro companion shared renderer; full deployed-site journey outstanding |
 | Templates | 16 shared choices including blank; 15 editable templates tested |
-| Entry management | Core and React inbox/detail, notes, read/star, spam/trash/restore, reference search and page exports; full-text search and bulk operations planned |
-| Notifications | Available in both Core and React: fixed recipients, subject, enable/disable; conditional engine preserves API-configured rules; live transport test outstanding |
+| Entry management | Core and React inbox/detail, notes, read/star, spam/trash/restore, reference search and paginated exports; React also offers complete exports within documented limits; full-text search and bulk operations planned |
+| Notifications | Available in both Core and React: fixed recipients, subject, enable/disable, nested conditional routing; host capturing transport tested, external live transport outstanding |
 | Advanced integrations and webhooks | Planned, not implemented |
 | Surveys and calculations | Planned, not implemented |
 | Payments | Planned, not implemented; no card collection |
@@ -27,10 +27,12 @@ No parity claim with WPForms Pro or Gravity Forms is made. A reliable current co
 | Additional target | QuixForms classification |
 |---|---|
 | Revision restoration | Available in both Core and React; restored form becomes a draft |
-| Conditional notification editor | Planned but not implemented; existing rules are preserved |
+| Conditional notification editor | Available in both Core and React; nested AND/OR rules, shared server evaluation |
 | Permanent entry erasure | Available in both Core and React for trashed entries with revision checks |
 | Appearance presets | Configured in Core and React; applied through Astro companion |
 | Arbitrary public active HTML from sandbox routes | Technically impossible through verified sandbox response restrictions |
 | Installer and removal | Native deployment tooling; npm local package install/build tested; publication pending |
 
 “Available” describes implemented behavior with the test evidence in the release report; it is not a claim of parity or completed production certification. WPForms/Gravity Forms pricing and current plan packaging remain unverified because their requested URLs were blocked.
+
+Whole-form duplication is available in both editors: the copy is a draft, retains field IDs/rules/options and has no copied submissions or revision history.

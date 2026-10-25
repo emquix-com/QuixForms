@@ -6,7 +6,6 @@ import {
   template,
   type Form,
   type Field,
-  type Rule,
 } from "@emquix/quixforms-engine";
 import {
   createTemplate,
@@ -17,155 +16,9 @@ import { FormView } from "@emquix/quixforms-astro";
 import "@emquix/quixforms-astro/style.css";
 import "./style.css";
 import { api } from "./api";
+import { Logic } from "./logic";
 import { Settings } from "./settings";
 import { Entries } from "./entries";
-function Logic({
-  rule,
-  onChange,
-  fields,
-  depth = 0,
-}: {
-  rule?: Rule;
-  onChange: (r: Rule | undefined) => void;
-  fields: Field[];
-  depth?: number;
-}) {
-  if (!rule)
-    return (
-      <button
-        onClick={() =>
-          onChange({
-            op: "and",
-            rules: [{ field: fields[0]?.id ?? "", op: "eq", value: "" }],
-          })
-        }
-      >
-        Add condition group
-      </button>
-    );
-  if ("rules" in rule)
-    return (
-      <fieldset>
-        <legend>Smart logic</legend>
-        <select
-          aria-label="Rule combination"
-          value={rule.op}
-          onChange={(e) =>
-            onChange({ ...rule, op: e.target.value as "and" | "or" })
-          }
-        >
-          <option value="and">All conditions</option>
-          <option value="or">Any condition</option>
-        </select>
-        {rule.rules.map((r, i) => (
-          <Logic
-            key={i}
-            depth={depth + 1}
-            rule={r}
-            fields={fields}
-            onChange={(next) =>
-              onChange({
-                ...rule,
-                rules: next
-                  ? rule.rules.map((old, j) => (j === i ? next : old))
-                  : rule.rules.filter((_, j) => j !== i),
-              })
-            }
-          />
-        ))}
-        <button
-          onClick={() =>
-            onChange({
-              ...rule,
-              rules: [
-                ...rule.rules,
-                { field: fields[0]?.id ?? "", op: "eq", value: "" },
-              ],
-            })
-          }
-        >
-          Add condition
-        </button>
-        {depth < 3 && (
-          <button
-            onClick={() =>
-              onChange({
-                ...rule,
-                rules: [
-                  ...rule.rules,
-                  {
-                    op: "or",
-                    rules: [
-                      { field: fields[0]?.id ?? "", op: "eq", value: "" },
-                    ],
-                  },
-                ],
-              })
-            }
-          >
-            Add group
-          </button>
-        )}
-        <button onClick={() => onChange(undefined)}>Remove group</button>
-      </fieldset>
-    );
-  return (
-    <div>
-      <select
-        aria-label="Condition field"
-        value={rule.field}
-        onChange={(e) => onChange({ ...rule, field: e.target.value })}
-      >
-        {fields.map((f) => (
-          <option key={f.id} value={f.id}>
-            {f.label}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="Operator"
-        value={rule.op}
-        onChange={(e) =>
-          onChange({ ...rule, op: e.target.value as typeof rule.op })
-        }
-      >
-        {[
-          "eq",
-          "ne",
-          "contains",
-          "notContains",
-          "gt",
-          "lt",
-          "empty",
-          "notEmpty",
-          "startsWith",
-          "endsWith",
-          "selected",
-          "notSelected",
-        ].map((o) => (
-          <option key={o}>{o}</option>
-        ))}
-      </select>
-      <input
-        aria-label="Comparison value"
-        value={String(rule.value ?? "")}
-        onChange={(e) =>
-          onChange({
-            ...rule,
-            value:
-              fields.find((f) => f.id === rule.field)?.type === "consent"
-                ? e.target.value === "true"
-                : ["gt", "lt"].includes(rule.op) ||
-                    fields.find((f) => f.id === rule.field)?.type === "number"
-                  ? Number(e.target.value)
-                  : e.target.value,
-          })
-        }
-      />
-      <button onClick={() => onChange(undefined)}>Remove condition</button>
-    </div>
-  );
-}
 export function Builder() {
   const [list, setList] = useState<
       Array<{ id: string; data: { current: Form } }>
@@ -353,6 +206,68 @@ export function Builder() {
   return (
     <div className="qf-builder">
       <header>
+        <button
+          disabled={busy}
+          onClick={async () => {
+            if (
+              dirty &&
+              !window.confirm(
+                "Discard unsaved changes and return to all forms?",
+              )
+            )
+              return;
+            setBusy(true);
+            try {
+              const result = await api("list");
+              setList(result.items);
+              setListCursor(result.cursor);
+              setForm(undefined);
+              setRevision(null);
+              setDirty(false);
+              setPast([]);
+              setFuture([]);
+              setMessage("");
+              setAutoPaused(false);
+            } catch {
+              setMessage("Could not load forms.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          All forms
+        </button>
+        <button
+          disabled={busy || dirty || !revision}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const result = await api("duplicate", { id: form.id, revision });
+              if (!result.ok)
+                throw new Error(
+                  "Could not duplicate. Reopen the saved form and try again.",
+                );
+              const copy = await api("read?id=" + result.id);
+              setForm(copy.value.current);
+              setRevision(copy.revision);
+              setDirty(false);
+              setPast([]);
+              setFuture([]);
+              setSelected("");
+              setMessage(
+                "Draft copy created. Entries remain on the original form.",
+              );
+            } catch (error) {
+              setMessage(
+                error instanceof Error ? error.message : "Could not duplicate.",
+              );
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Duplicate saved form
+        </button>
         <input
           aria-label="Form name"
           value={form.title}

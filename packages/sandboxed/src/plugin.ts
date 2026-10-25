@@ -48,6 +48,23 @@ export async function save(ctx: PluginContext, input: unknown) {
     ? { ok: true as const, revision: result.revision }
     : { ok: false as const, error: "CONFLICT" };
 }
+export async function duplicateForm(ctx: PluginContext, input: unknown) {
+  const q = z
+    .object({ id: idSchema, revision: z.string().min(1).max(128) })
+    .strict()
+    .parse(input);
+  const row = await forms(ctx).getVersioned(q.id);
+  if (!row || row.revision !== q.revision)
+    return { ok: false as const, error: "CONFLICT" };
+  const form = {
+    ...structuredClone(row.value.current),
+    id: "f_" + crypto.randomUUID().replaceAll("-", ""),
+    title: row.value.current.title.slice(0, 190) + " (copy)",
+    status: "draft" as const,
+  };
+  const result = await save(ctx, { form, revision: null });
+  return result.ok ? { ...result, id: form.id } : result;
+}
 const formId = z.object({ id: idSchema });
 const listInput = z.object({
   id: idSchema,
@@ -78,6 +95,18 @@ const plugin: SandboxedPlugin = {
           return await save(c, r.input);
         } catch {
           return { ok: false, error: "INVALID_DEFINITION" };
+        }
+      },
+    },
+    duplicate: {
+      methods: ["POST"],
+      permission: "plugins:manage",
+      request: { body: "json", maxBytes: 4096 },
+      handler: async (r, c) => {
+        try {
+          return await duplicateForm(c, r.input);
+        } catch {
+          return { ok: false, error: "INVALID_REQUEST" };
         }
       },
     },

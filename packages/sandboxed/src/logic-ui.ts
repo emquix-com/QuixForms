@@ -66,21 +66,42 @@ export async function logicAction(
 ): Promise<BlockResponse> {
   const [op, id, revision, fieldId, location = "showWhen", operation] =
     action.split(":");
-  const [mode, ...parts] = location.split(".");
-  if (mode !== "showWhen" && mode !== "requiredWhen")
-    throw new Error("Invalid condition");
+  const [rawMode, ...parts] = location.split(".");
+  const mode = z.enum(["showWhen", "requiredWhen", "when"]).parse(rawMode);
   const path = parts.map((n) => z.coerce.number().int().min(0).max(9).parse(n));
   if (path.length > 4) throw new Error("Rule editor depth exceeded");
   const row = await forms(c).getVersioned(id);
   if (!row) throw new Error("Missing form");
-  const form = structuredClone(row.value.current),
-    field = form.fields.find((f) => f.id === fieldId);
-  if (!field) throw new Error("Missing field");
-  let root = field[mode],
+  const form = structuredClone(row.value.current);
+  const notificationIndex =
+    mode === "when"
+      ? z.coerce
+          .number()
+          .int()
+          .min(0)
+          .max(4)
+          .parse(/^n_(\d)$/.exec(fieldId)?.[1])
+      : undefined;
+  const field =
+    mode === "when" ? undefined : form.fields.find((f) => f.id === fieldId);
+  const notification =
+    notificationIndex === undefined
+      ? undefined
+      : form.notifications[notificationIndex];
+  const target:
+    | { showWhen?: Rule; requiredWhen?: Rule; when?: Rule }
+    | undefined = notification ?? field;
+  if (!target) throw new Error("Missing condition target");
+  const title = notification
+    ? `Notification ${notificationIndex! + 1}`
+    : field!.label;
+  let root = target[mode],
     node = get(root, path);
-  const source = form.fields.find(
-    (f) => f.id !== fieldId && !["page", "section", "content"].includes(f.type),
+  const availableFields = form.fields.filter(
+    (f) =>
+      f.id !== field?.id && !["page", "section", "content"].includes(f.type),
   );
+  const source = availableFields[0];
   const fresh = (): Rule => {
     if (!source) throw new Error("Add an input field first");
     return { field: source.id, op: "notEmpty" };
@@ -141,8 +162,8 @@ export async function logicAction(
       };
     }
     root = replace(root, path, next);
-    if (root) field[mode] = root;
-    else delete field[mode];
+    if (root) target[mode] = root;
+    else delete target[mode];
     const result = await save(c, { form, revision: row.revision });
     if (!result.ok) throw new Error("Conflict");
     return logicAction(
@@ -170,9 +191,13 @@ export async function logicAction(
     {
       type: "header",
       text:
-        field.label +
+        title +
         " — " +
-        (mode === "showWhen" ? "visibility" : "conditional required"),
+        (mode === "when"
+          ? "send conditions"
+          : mode === "showWhen"
+            ? "visibility"
+            : "conditional required"),
     },
     {
       type: "section",
@@ -181,17 +206,26 @@ export async function logicAction(
     {
       type: "actions",
       elements: [
-        button("Back to form", "open:" + id),
         button(
-          mode === "showWhen" ? "Edit conditional required" : "Edit visibility",
-          [
-            "logicview",
-            id,
-            encodeURIComponent(row.revision),
-            fieldId,
-            mode === "showWhen" ? "requiredWhen" : "showWhen",
-          ].join(":"),
+          mode === "when" ? "Back to notifications" : "Back to form",
+          (mode === "when" ? "notifications:" : "open:") + id,
         ),
+        ...(mode === "when"
+          ? []
+          : [
+              button(
+                mode === "showWhen"
+                  ? "Edit conditional required"
+                  : "Edit visibility",
+                [
+                  "logicview",
+                  id,
+                  encodeURIComponent(row.revision),
+                  fieldId,
+                  mode === "showWhen" ? "requiredWhen" : "showWhen",
+                ].join(":"),
+              ),
+            ]),
         ...(path.length
           ? [button("Parent group", make(undefined, path.slice(0, -1)))]
           : []),
@@ -203,9 +237,11 @@ export async function logicAction(
       {
         type: "section",
         text:
-          mode === "showWhen"
-            ? "Always visible"
-            : "Only the standard Required setting applies",
+          mode === "when"
+            ? "Send for every accepted submission when enabled"
+            : mode === "showWhen"
+              ? "Always visible"
+              : "Only the standard Required setting applies",
       },
       {
         type: "actions",
@@ -218,19 +254,17 @@ export async function logicAction(
     blocks.push(
       {
         type: "form",
+        block_id: ["condition", id, fieldId, mode, ...at].join(":"),
         fields: [
           {
             type: "select",
             action_id: "source",
             label: "Field",
             initial_value: rule.field,
-            options: form.fields
-              .filter(
-                (f) =>
-                  f.id !== fieldId &&
-                  !["page", "section", "content"].includes(f.type),
-              )
-              .map((f) => ({ label: f.label, value: f.id })),
+            options: availableFields.map((f) => ({
+              label: f.label,
+              value: f.id,
+            })),
           },
           {
             type: "select",
@@ -260,6 +294,7 @@ export async function logicAction(
   if ("rules" in node) {
     blocks.push({
       type: "form",
+      block_id: ["condition-group", id, fieldId, mode, ...path].join(":"),
       fields: [
         {
           type: "select",
@@ -282,7 +317,12 @@ export async function logicAction(
           text: `${r.op === "and" ? "All" : "Any"} of ${r.rules.length} nested conditions`,
           accessory: button("Edit group", make(undefined, at)),
         });
-      else leaf(r, at);
+      else
+        blocks.push({
+          type: "section",
+          text: `${form.fields.find((f) => f.id === r.field)?.label ?? r.field} · ${labels[r.op]}${r.value === undefined ? "" : ": " + String(r.value)}`,
+          accessory: button("Edit condition", make(undefined, at)),
+        });
     });
     blocks.push({
       type: "actions",

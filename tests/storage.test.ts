@@ -71,3 +71,60 @@ it("bounds UTF-8 revision history below the host single-document limit", async (
   expect(record.history.length).toBeGreaterThan(0);
   expect(record.history.length).toBeLessThan(10);
 });
+import { duplicateForm } from "../packages/sandboxed/src/plugin";
+it("duplicates a saved form as a draft with preserved rules and fresh history, without touching entries", async () => {
+  const source = template("source");
+  source.status = "published";
+  source.fields[2].showWhen = {
+    op: "and",
+    rules: [{ field: "name", op: "notEmpty" }],
+  };
+  source.notifications = [
+    {
+      to: "admin@example.com",
+      subject: "New entry",
+      when: { field: "email", op: "notEmpty" },
+    },
+  ];
+  const original = {
+    current: source,
+    history: [template("source", "Older title")],
+  };
+  const rows = new Map([["source", original]]);
+  const ctx = {
+    storage: {
+      forms: {
+        getVersioned: async (id: string) =>
+          rows.has(id) ? { value: rows.get(id), revision: "source-r" } : null,
+        compareAndSet: async (
+          id: string,
+          revision: string | null,
+          data: typeof original,
+        ) => {
+          if (rows.has(id) || revision !== null) return { applied: false };
+          rows.set(id, data);
+          return { applied: true, revision: "copy-r" };
+        },
+      },
+    },
+  } as unknown as PluginContext;
+  expect(
+    await duplicateForm(ctx, { id: "source", revision: "stale" }),
+  ).toMatchObject({ ok: false, error: "CONFLICT" });
+  expect(rows.size).toBe(1);
+  const result = await duplicateForm(ctx, {
+    id: "source",
+    revision: "source-r",
+  });
+  expect(result.ok).toBe(true);
+  if (!result.ok) return;
+  expect(result.id).not.toBe("source");
+  const copy = rows.get(result.id)!;
+  expect(copy.current.status).toBe("draft");
+  expect(copy.current.title).toBe("Contact us (copy)");
+  expect(copy.current.fields).toEqual(source.fields);
+  expect(copy.current.notifications).toEqual(source.notifications);
+  expect(copy.history).toEqual([]);
+  expect(rows.get("source")).toEqual(original);
+  expect(source.status).toBe("published");
+});

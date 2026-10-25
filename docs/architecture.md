@@ -24,3 +24,6 @@ No release approval: retention jobs, comprehensive authenticated export runtime 
 Five 0.1.0 packages are packed independently. The Core runtime bundles its shared engine. React/Astro source exports are compiled by the host's official Vite/Astro integration; native server descriptor code is prebuilt. The native entry exports the required `createPlugin`. Both descriptors register inside `emdash({...})` in Astro config. No source imports escape their package directories at runtime.
 
 The installer uses the TypeScript parser to edit a narrowly recognized config AST, refuses dynamic/ambiguous cases, checks local artifacts, backs up configuration/manifests, builds the host and restores files after failure. It does not choose a sandbox runner or deploy. The candidate was installed in a separate Node site from tarballs; real passkey-authenticated Core → React → Core editing passed against the official workerd runner.
+
+
+Block Kit form identity is part of the integration contract. EmDash 1.3.1 initializes form values on mount and keys blocks by block_id (falling back to position). QuixForms supplies contextual block IDs and fingerprints of initial field configuration to prevent state leaking between screens while preserving unrelated unsaved inputs.

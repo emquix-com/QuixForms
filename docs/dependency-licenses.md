@@ -1,6 +1,6 @@
 # Dependency license inventory
 
-Generated from both locked dependency trees. Declared metadata is not a completed legal review. Original QuixForms code is MIT.
+Generated from both locked dependency trees. Declared metadata is not a completed legal review. Original QuixForms code is MIT. Accessibility tooling is development-only and is not included in runtime packages.
 
 ## workspace
 
@@ -45,6 +45,7 @@ Generated from both locked dependency trees. Declared metadata is not a complete
 | node_modules/@atcute/util-fetch | 2.1.0 | 0BSD |
 | node_modules/@atcute/util-text | 1.3.4 | 0BSD |
 | node_modules/@atcute/varint | 2.0.2 | 0BSD |
+| node_modules/@axe-core/playwright | 4.14.0 | MPL-2.0 |
 | node_modules/@babel/helper-string-parser | 7.29.11 | MIT |
 | node_modules/@babel/helper-validator-identifier | 7.29.7 | MIT |
 | node_modules/@babel/parser | 7.29.11 | MIT |
@@ -332,6 +333,7 @@ Generated from both locked dependency trees. Declared metadata is not a complete
 | node_modules/astro/node_modules/get-tsconfig | 5.0.0-beta.6 | MIT |
 | node_modules/astro/node_modules/obug | 3.0.0 | MIT |
 | node_modules/astro/node_modules/rolldown | 1.2.15 | MIT |
+| node_modules/axe-core | 4.14.0 | MPL-2.0 |
 | node_modules/axobject-query | 4.1.0 | Apache-2.0 |
 | node_modules/bail | 2.0.2 | MIT |
 | node_modules/birpc | 4.2.0 | MIT |

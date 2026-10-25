@@ -6,8 +6,9 @@ import type {
   FormField,
 } from "@emdash-cms/blocks";
 import { z } from "zod";
+import { digest } from "./abuse";
 import { logicAction } from "./logic-ui";
-import { forms, save } from "./plugin";
+import { forms, save, duplicateForm } from "./plugin";
 import {
   createTemplate,
   templateCatalog,
@@ -76,6 +77,7 @@ async function editor(
       type: "actions",
       elements: [
         button("All forms", "home"),
+        button("Duplicate saved form", t("duplicateform")),
         button(f.status === "draft" ? "Publish" : "Unpublish", t("publish")),
         button("Entries", t("entries")),
         button("Embed", t("embed")),
@@ -85,6 +87,7 @@ async function editor(
     },
     {
       type: "form",
+      block_id: "settings:" + id,
       fields: [
         input("title", "Form title", f.title),
         input("confirmation", "Confirmation", f.confirmation),
@@ -98,7 +101,6 @@ async function editor(
             label: value,
           })),
         },
-        input("to", "Notification recipient", f.notifications[0]?.to ?? ""),
       ],
       submit: { label: "Save settings", action_id: t("settings") },
     },
@@ -107,7 +109,7 @@ async function editor(
     blocks.push(
       {
         type: "form",
-        block_id: field.id,
+        block_id: "field:" + id + ":" + field.id,
         fields: [
           input("label", "Label", field.label),
           input("description", "Description", field.description),
@@ -153,6 +155,7 @@ async function editor(
   blocks.push(
     {
       type: "form",
+      block_id: "add-field:" + id,
       fields: [
         {
           type: "select",
@@ -192,6 +195,7 @@ async function overview(
       { type: "section", text: "Powerful Forms. Effortless Building." },
       {
         type: "form",
+        block_id: "create-form",
         fields: [
           input("title", "New form name"),
           {
@@ -225,7 +229,7 @@ async function overview(
     ],
   };
 }
-export const admin: Extract<
+const renderAdmin: Extract<
   NonNullable<SandboxedPlugin["routes"]>[string],
   { handler: unknown }
 >["handler"] = async (r, c) => {
@@ -310,25 +314,65 @@ export const admin: Extract<
           { type: "header", text: "Email notifications" },
           {
             type: "section",
-            text: "Recipients are set by administrators. Existing conditional rules are preserved when editing recipient or subject.",
+            text: "Recipients are set by administrators. Use Send conditions to route messages based on validated form answers.",
           },
-          ...f.notifications.map((n, index) => ({
-            type: "form" as const,
-            fields: [
-              input("to", "Recipient", n.to),
-              input("subject", "Subject", n.subject),
-              {
-                type: "toggle",
-                action_id: "enabled",
-                label: "Enabled",
-                initial_value: n.enabled !== false,
+          ...f.notifications.flatMap((n, index): Block[] => [
+            {
+              type: "form" as const,
+              block_id: "notification:" + id + ":" + index,
+              fields: [
+                input("to", "Recipient", n.to),
+                input("subject", "Subject", n.subject),
+                {
+                  type: "toggle",
+                  action_id: "enabled",
+                  label: "Enabled",
+                  initial_value: n.enabled !== false,
+                },
+              ],
+              submit: {
+                label: "Save notification",
+                action_id: token(
+                  "notification",
+                  id,
+                  row.revision,
+                  String(index),
+                ),
               },
-            ],
-            submit: {
-              label: "Save notification",
-              action_id: token("notification", id, row.revision, String(index)),
             },
-          })),
+            {
+              type: "actions",
+              elements: [
+                button(
+                  "Send conditions",
+                  [
+                    "logicview",
+                    id,
+                    encodeURIComponent(row.revision),
+                    `n_${index}`,
+                    "when",
+                  ].join(":"),
+                ),
+                {
+                  ...button(
+                    "Remove notification",
+                    token(
+                      "deletenotification",
+                      id,
+                      row.revision,
+                      String(index),
+                    ),
+                  ),
+                  confirm: {
+                    title: "Remove notification?",
+                    text: "This stops future delivery for this notification. Other notifications and entries remain.",
+                    confirm: "Remove",
+                    deny: "Cancel",
+                  },
+                },
+              ],
+            },
+          ]),
           {
             type: "actions",
             elements: [
@@ -364,6 +408,22 @@ export const admin: Extract<
         page,
         "Another editor saved changes. Reloaded; your action was not applied.",
       );
+    if (op === "duplicateform") {
+      const result = await duplicateForm(c, { id, revision: row.revision });
+      return result.ok
+        ? editor(
+            c,
+            result.id,
+            0,
+            "Draft copy created. Entries remain on the original form.",
+          )
+        : editor(
+            c,
+            id,
+            0,
+            "Could not duplicate. Reopen the form and try again.",
+          );
+    }
     const index = f.fields.findIndex((x) => x.id === field);
     if (op === "restore") {
       const restored = row.value.history[Number(field)];
@@ -385,11 +445,16 @@ export const admin: Extract<
       n.to = z.email().parse(v.to);
       n.subject = z.string().parse(v.subject);
       n.enabled = z.boolean().parse(v.enabled);
+    } else if (op === "deletenotification") {
+      const index = z.coerce.number().int().min(0).max(4).parse(field);
+      if (!f.notifications[index]) throw new Error("Missing notification");
+      f.notifications.splice(index, 1);
     } else if (op === "addnotification")
       return {
         blocks: [
           {
             type: "form",
+            block_id: "new-notification:" + id,
             fields: [
               input("to", "Recipient"),
               input("subject", "Subject", "New QuixForms submission"),
@@ -414,19 +479,6 @@ export const admin: Extract<
       f.appearance = z
         .enum(["minimal", "modern", "classic", "boxed"])
         .parse(v.appearance);
-      const to = z.string().parse(v.to);
-
-      if (f.notifications.length <= 1)
-        f.notifications = to
-          ? [
-              {
-                ...f.notifications[0],
-                to,
-                subject:
-                  f.notifications[0]?.subject ?? "New QuixForms submission",
-              },
-            ]
-          : [];
     } else if (op === "add") {
       const type = z.enum(fieldTypes).parse(v.type);
       f.fields.push(
@@ -479,4 +531,27 @@ export const admin: Extract<
         )
       : overview(c);
   }
+};
+
+// Block Kit initializes form values only on mount. Screen identity avoids state
+// leaking between forms; the fields fingerprint refreshes changed saved values
+// while preserving in-progress edits in other unchanged sections.
+export const admin: typeof renderAdmin = async (request, context) => {
+  const response = (await renderAdmin(request, context)) as BlockResponse;
+  return {
+    ...response,
+    blocks: await Promise.all(
+      response.blocks.map(async (block) =>
+        block.type === "form"
+          ? {
+              ...block,
+              block_id:
+                (block.block_id ?? block.submit.action_id) +
+                ":" +
+                (await digest(JSON.stringify(block.fields))).slice(0, 16),
+            }
+          : block,
+      ),
+    ),
+  };
 };

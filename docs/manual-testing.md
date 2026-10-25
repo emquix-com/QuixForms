@@ -96,21 +96,21 @@ To test switching a managed full installation to Core alone: stop the server, ru
 
 - [ ] Core only: create a blank and template form; configure labels, choices, required flags, placeholder, widths, add/duplicate/delete/reorder fields. Test enough fields to cross editor pagination.
 - [ ] Configure nested AND/OR visibility and conditional-required rules. Test empty, numerical and choice conditions; confirm hidden required answers are not demanded or stored.
-- [ ] Draft is unavailable publicly; publish makes the form available; unpublish hides it.
-- [ ] Configure multiple notifications, disable one, change confirmation and appearance. Verify actual delivery using your configured transport; verify delivery failure does not lose the accepted entry.
+- [ ] Draft is unavailable publicly; publish makes the form available; unpublish hides it. Duplicate a saved form and verify the copy is a draft, rules/options are retained and no entries were copied.
+- [ ] Configure multiple notifications, disable one, add nested Send conditions, change confirmation and appearance. Verify actual delivery using your configured transport; verify delivery failure does not lose the accepted entry.
 - [ ] Restore a revision. The restored form must be a draft and existing entries must remain.
 - [ ] Native: add fields by click and drag, reorder with mouse and keyboard buttons, undo/redo, preview desktop/mobile, edit Smart Logic, save settings and publish.
 - [ ] Edit in Core → React → Core, including nested rules, multi-step fields, notifications and appearance. Compare data before/after. Repeat after removing Advanced.
 - [ ] Open a second editor, save different changes, then save the stale editor. It must report a conflict instead of overwriting newer changes.
 - [ ] Public Astro form: correct responsive rendering, keyboard labels and errors, multi-step Back/Next, conditional fields, server rejection of invalid input and successful stored submission with real CAPTCHA.
 - [ ] Retry after a lost response; exactly one stored entry and one notification attempt. Different answers must not reuse an accepted submission key.
-- [ ] Entries: read/unread, star, reference-prefix search, filters, pagination, notes, spam/trash/restore, page CSV/JSON. Export values beginning with `=`, `+`, `-`, `@` must not run spreadsheet formulas.
+- [ ] Entries: read/unread, star, reference-prefix search, filters, pagination, notes, spam/trash/restore, page CSV/JSON and React’s Export all CSV/JSON. Export values beginning with `=`, `+`, `-`, `@` must not run spreadsheet formulas.
 - [ ] Permanent erasure requires Trash and confirmation. Verify the entry and notes are absent afterward.
 - [ ] Signed-out/non-admin users cannot read forms' private configuration, entries or exports. Public definitions must omit notification recipients.
 - [ ] Repeat installer; no duplicate declarations. Customize config after install; removal must refuse to replace it. Test failing build rollback on a disposable site.
 
-A script for an authenticated disposable site is available: `QF_TEST_URL=http://localhost:4333 QF_TEST_SESSION=/private/session.json node scripts/test-installed.mjs`. It creates a synthetic form and checks Core → React → Core; `--core-only` checks removal of Advanced and persistence of that form. With the example dynamic route installed, `--renderer` also publishes the synthetic form and verifies its public Astro rendering. The Playwright storage-state file contains a live admin cookie: keep it outside the repository and delete it after testing.
+A script for an authenticated disposable site is available: `QF_TEST_URL=http://localhost:4333 QF_TEST_SESSION=/private/session.json node scripts/test-installed.mjs`. It creates a synthetic form and checks Core → React → Core; `--conditions` adds a real Block Kit notification-rule creation and React settings roundtrip; `--core-only` checks removal of Advanced and persistence of that form. With the example dynamic route installed, `--renderer` also publishes the synthetic form and verifies its public Astro rendering. The Playwright storage-state file contains a live admin cookie: keep it outside the repository and delete it after testing.
 
 ## Scope exclusions
 
-No payments, file uploads, calculations, dedicated survey fields/reporting, conversational mode, webhooks, save/resume, marketing connectors or AI creation. HTML content is plain text. Search is by reference prefix, exports are paginated, and email attempts are inline without durable retry jobs. Do not attempt acceptance tests for these unimplemented features as though they were available.
+No payments, file uploads, calculations, dedicated survey fields/reporting, conversational mode, webhooks, save/resume, marketing connectors or AI creation. HTML content is plain text. Search is by reference prefix, Core exports are paginated; React also aggregates up to 10,000 entries / 32 MiB into one file. Larger exports need the cursor API. Exports are not a transactionally frozen snapshot while entries change. Email attempts are inline without durable retry jobs. Do not attempt acceptance tests for these unimplemented features as though they were available.
