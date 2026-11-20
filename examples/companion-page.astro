@@ -2,5 +2,7 @@
 // Copy to src/pages/forms/[id].astro after installing the Astro companion.
 import Form from '@emquix/quixforms-astro/Form.astro';
 const {id} = Astro.params;
+// For registry Core, replace this with the plugin ID from Embed & setup.
+const pluginId = 'quixforms';
 ---
-<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><title>QuixForms</title></head><body><main><Form id={id!}/></main></body></html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/><title>QuixForms</title></head><body><main><Form id={id!} pluginId={pluginId}/></main></body></html>

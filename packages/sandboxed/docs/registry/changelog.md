@@ -6,7 +6,7 @@
 - Renderer 0.1.1 accepts that ID for both definition and submission requests.
 - Verified the generated-ID journey after a fresh signed registry installation.
 
-## 0.1.0 — first public-release candidate
+## 0.1.0 — first sandboxed release
 
 - Sandboxed form storage, native Block Kit builder and submission inbox.
 - Shared templates, 15 field types and nested conditional logic.
@@ -17,4 +17,4 @@
 - Separate free Astro renderer and Advanced editor in the public source repository.
 - Runtime reduced below EmDash's publishing file-size limit using the lightweight validation build.
 
-See the repository's release report for executed test evidence and deployment limitations. This section does not establish that a release has already been published or approved.
+See the repository's release report for executed test evidence and deployment limitations.

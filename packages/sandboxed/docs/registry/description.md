@@ -17,4 +17,4 @@ The registry plugin provides the builder, backend and inbox. Displaying a form o
 
 The optional Advanced visual editor is also free and developed in the same public repository. It is separate from this sandboxed registry package.
 
-Version 0.1.0 is the first public-release candidate. Payments, uploads, signatures, autoresponders, integrations and automatic retention are not included. Published form edits take effect when saved; there is no separate unpublished copy of a published form.
+Payments, uploads, signatures, autoresponders, integrations and automatic retention are not included. Published form edits take effect when saved; there is no separate unpublished copy of a published form.

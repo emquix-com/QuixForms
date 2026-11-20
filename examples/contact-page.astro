@@ -2,6 +2,8 @@
 import Form from '@emquix/quixforms-astro/Form.astro';
 // Replace with the published form ID from QuixForms → Embed & setup.
 const formId = 'your_form_id';
+// For registry Core, copy the generated plugin ID from Embed & setup.
+const pluginId = 'quixforms';
 ---
 <!doctype html>
 <html lang="en">
@@ -20,7 +22,7 @@ const formId = 'your_form_id';
         <div class="details"><span>01</span><p><strong>Tell us a little about yourself.</strong><br />A name, an email, and what’s on your mind.</p></div>
         <div class="details"><span>02</span><p><strong>Make room for the next step.</strong><br />A clear message helps start a useful conversation.</p></div>
       </section>
-      <section class="form-card" aria-label="Send a message"><Form id={formId} /></section>
+      <section class="form-card" aria-label="Send a message"><Form id={formId} pluginId={pluginId} /></section>
     </main>
     <footer>Built with QuixForms <span>Powerful forms. Effortless building.</span></footer>
   </body>

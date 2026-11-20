@@ -2,6 +2,20 @@
 
 Prepared 2026-11-20 after reviewing the successful QuixSEO publishing chat and its public manifest. This plan covers the sandboxed Core release, not native npm publication.
 
+## Executed status — 2026-11-20
+
+Sandboxed 0.1.0 and the registry-ID integration correction **0.1.1 are published**.
+Both releases passed registry assessment. The public listing is
+[QuixForms by @emquix.com](https://plugins.emdashcms.com/plugins/@emquix.com/quixforms).
+The actual public archives were downloaded and their sizes/checksums verified.
+Private vulnerability reporting is enabled. The correction passed 111 checks
+locally and the full [CI workflow](https://github.com/emquix-com/QuixForms/actions/runs/44758980559).
+A clean signed registry installation, public submission, inbox, CSV export and
+restart persistence were verified. Core was then updated normally to 0.1.1.
+See [release-report.md](release-report.md) for immutable record identities and
+verification scope. The numbered sections below remain the release procedure;
+delegated-release automation and native npm distribution are separate follow-ups.
+
 ## Release identity and scope
 
 | Item | Value |
@@ -90,4 +104,4 @@ To remove source-based renderer setup for users, publish the free shared engine 
 - [Listing source sections](../packages/sandboxed/docs/registry/description.md)
 - [Executed release evidence](release-report.md)
 
-Publishing, moderation, registry installation and npm publication are separate milestones. This plan is not evidence that any of them has already completed.
+Publishing, moderation, registry installation and npm publication are separate milestones. The executed status above records completion; the procedure alone is not execution evidence.

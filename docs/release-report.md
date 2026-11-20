@@ -1,10 +1,34 @@
-# QuixForms 0.1.0 manual acceptance candidate
+# QuixForms release verification
 
-Updated 2026-11-20. **Sandboxed 0.1.0 is published and passed registry assessment and installation. A 0.1.1 integration correction is being prepared.** No npm package or GitHub release has been published. The historical acceptance gaps below remain separate from registry publication.
+Updated 2026-11-20. **Sandboxed 0.1.1 is published and passed registry assessment and installation/update verification.** No npm package or GitHub release has been published. The historical acceptance gaps below remain separate from registry publication.
 
 ## 2026-11-20 Windows local verification
 
 ### First sandboxed publication
+
+**Latest release: 0.1.1.** Published from `57ef6af`, following the full green
+[CI run for the correction](https://github.com/emquix-com/QuixForms/actions/runs/44758980559)
+and offline validation of the listing-only size adjustment. Runtime is
+**77,612 bytes**, below 128 KiB; Advanced and React are absent from the bundle.
+The public listing and its corrected generated-ID instructions passed assessment.
+No immutable release was overwritten.
+
+- Latest profile CID: `bafyreihmhvqe3zr2xmlg7yq433ktnhe77tf5keqwpskowd7kyuuammlllm`
+- Release: `at://did:plc:6clqzka76ueshbureaecbrfj/com.emdashcms.experimental.package.release/quixforms:0.1.1`
+- Release CID: `bafyreiauewpk4sjpeg3cbohy6dgck5qapcnx3oq44k42v4m6jovbuk2s4a`
+- Blob CID: `bafkreifuckrzdvagnweilr5dh5wlxglfdk45cz3dnhsps7yyzev6rxbt5a`
+- Published archive: **25,467 bytes**, SHA-256 `b412a391d4066d8885c7a33f6cbb99651ab9d1676369e4f97f18c92be8dc33e8`
+
+Downloaded the public 0.1.1 blob and verified its checksum and byte count.
+The normal plugin-manager update flow installed 0.1.1 on the registry test site.
+The updated builder showed the correct generated plugin ID in its embed snippet;
+the published form and existing entry remained present after the update.
+Before that update, restarting the site retained the plugin, published form and
+the accepted entry. This is a real loopback Node/EmDash verification, not a
+deployed Cloudflare claim. Native renderer 0.1.1 is distributed from source;
+other native companions remain 0.1.0 and npm-private.
+
+The following records describe the initial 0.1.0 release, retained unchanged.
 
 Published `@emquix.com/quixforms@0.1.0` through the official plugin CLI after
 renewing the existing publisher session. No immutable release was overwritten.
@@ -375,7 +399,7 @@ Live external Turnstile and email delivery, deployed Cloudflare, exhaustive acce
 
 The historical dependency audits reported **zero advisories**; evidence is recorded in `root-audit.json` and `harness-audit.json`. The isolated harness pins patched Vitest 4.1.12 / Vite 8.3.5, Zod 4.6.6 and Miniflare’s Undici 7.30.1. Audit results do not prove application security. Dependency license inventory comes from lockfile declarations, not a completed legal certification. See SECURITY.md for threat controls and remaining review.
 
-## Release blockers and known limitations
+## Historical acceptance gaps and known limitations
 
 1. Complete real browser → public renderer → live CAPTCHA → sandbox storage → configured email → entries/export journeys, including every supported field and multi-step branching.
 2. Validate a real Cloudflare deployment and signed registry installation; confirm publisher identity and operational private vulnerability reporting.
