@@ -25,5 +25,5 @@ jobs:
       - run: node scripts/release-kit.mjs
       - uses: actions/upload-artifact@v4
         with:
-          name: quixforms-0.1.0-manual-test
-          path: artifacts/quixforms-0.1.0-manual-test.tar.gz
+          name: quixforms-0.1.1-manual-test
+          path: artifacts/quixforms-0.1.1-manual-test.tar.gz

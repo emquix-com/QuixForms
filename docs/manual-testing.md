@@ -1,6 +1,6 @@
-# QuixForms 0.1.0 manual acceptance kit
+# QuixForms 0.1.1 manual acceptance kit
 
-This is an **unpublished test candidate**, not a production approval. Test with synthetic data in a separate site. The release report lists unresolved gates. Both interfaces use the same sandboxed Core; “installed/native” adds a React authoring interface, not a second backend.
+Sandboxed Core is published in the EmDash registry. Native packages are source-installed; this guide also covers local acceptance checks. Test with synthetic data in a separate site. The release report lists unresolved gates. Both interfaces use the same sandboxed Core; “installed/native” adds a React authoring interface, not a second backend.
 
 ## Tested versions and prerequisites
 
@@ -8,7 +8,7 @@ Node 24; EmDash 1.3.1; Astro 7.4.13; React 19.2.0; @astrojs/react 7.1.1. The Nod
 
 Cloudflare requires EmDash's official sandbox integration, Worker Loader `LOADER` binding, PluginBridge export and a compatible paid Workers plan. A deployed Cloudflare acceptance run is still outstanding; the local official Worker/D1 harness is not that deployment test.
 
-## Build the unpublished artifacts
+## Build the source artifacts
 
 From a checkout of this repository:
 
@@ -19,13 +19,13 @@ npm run pack:candidate
 npm run bundle:candidate
 ```
 
-`artifacts/` contains five npm tarballs, `checksums.json`, and the official `quixforms-0.1.0.tar.gz` registry bundle. The CLI verifies the npm artifact checksums before installation. The registry bundle is locally validated but unsigned/unpublished; it cannot be searched for and installed from the official registry yet. Publisher ownership and publication require a separate approved step. Do not try to replace EmDash's registry verification with an arbitrary upload endpoint.
+`artifacts/` contains five npm tarballs, `checksums.json`, and the official `quixforms-0.1.1.tar.gz` registry bundle. The CLI verifies the npm artifact checksums before installation. The locally built bundle is unsigned; for a signed registry installation, search for `@emquix.com/quixforms` in EmDash Registry. Do not replace EmDash's registry verification with an arbitrary upload endpoint.
 
 If you received the assembled test archive, extract it and install its local CLI into your test site:
 
 ```sh
-npm install /absolute/path/quixforms-0.1.0-manual-test/artifacts/emquix-quixforms-cli-0.1.0.tgz
-npx quixforms install --artifacts /absolute/path/quixforms-0.1.0-manual-test/artifacts --core-only --dry-run
+npm install /absolute/path/quixforms-0.1.1-manual-test/artifacts/emquix-quixforms-cli-0.1.0.tgz
+npx quixforms install --artifacts /absolute/path/quixforms-0.1.1-manual-test/artifacts --core-only --dry-run
 ```
 
 Remove `--dry-run` to install; substitute `--with-core` for the full installation. These commands use the local CLI package, not an unpublished npm registry name. `npm run kit:candidate` assembles the archive from a source checkout. CI also attaches it as a downloadable workflow artifact after checks pass.
@@ -126,10 +126,10 @@ Alternatively, place this in any Astro page:
 ---
 import Form from '@emquix/quixforms-astro/Form.astro';
 ---
-<Form id="YOUR_FORM_ID" />
+<Form id="YOUR_FORM_ID" pluginId="YOUR_INSTALLED_PLUGIN_ID" />
 ```
 
-The wrapper includes scoped CSS and the React hydration directive. It reads the site key from Core. Use a real Turnstile site key/secret pair allowing your test hostname and configure EmDash's normal email transport. QuixMail is optional. Missing or failed bot verification deliberately rejects submissions. No test-mode bypass is shipped.
+Copy the installed plugin ID from Core's Embed & setup screen for registry Core; the local config-managed default is `quixforms`. Pass it in the dynamic route too. Renderer 0.1.1 supports this property. The wrapper includes scoped CSS and the React hydration directive. It reads the site key from Core. With both Turnstile keys configured, missing or failed verification rejects submissions. Without both keys, forms work without CAPTCHA. No test-mode bypass is shipped.
 
 For manual configuration, add the following to the existing **astro.config.mjs** EmDash integration, preserving its database, storage, runner and other plugin declarations:
 

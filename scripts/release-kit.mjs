@@ -11,7 +11,7 @@ import { join, resolve, basename } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 const stage = mkdtempSync(join(tmpdir(), "quixforms-kit-"));
-const root = join(stage, "quixforms-0.1.0-manual-test");
+const root = join(stage, "quixforms-0.1.1-manual-test");
 try {
   mkdirSync(join(root, "artifacts"), { recursive: true });
   const artifacts = JSON.parse(
@@ -19,11 +19,11 @@ try {
   );
   for (const item of artifacts)
     cpSync(join("artifacts", item.file), join(root, "artifacts", item.file));
-  const bundle = "quixforms-0.1.0.tar.gz";
+  const bundle = "quixforms-0.1.1.tar.gz";
   cpSync(join("artifacts", bundle), join(root, "artifacts", bundle));
   artifacts.push({
     package: "@emquix.com/quixforms (registry bundle)",
-    version: "0.1.0",
+    version: "0.1.1",
     file: bundle,
     sha256: createHash("sha256")
       .update(readFileSync(join("artifacts", bundle)))
@@ -49,8 +49,8 @@ try {
     join(root, "BUILD-INFO.json"),
     JSON.stringify(
       {
-        version: "0.1.0",
-        stage: "manual acceptance; unpublished",
+        version: "0.1.1",
+        stage: "manual acceptance artifact; see release report for registry status",
         commit: execFileSync("git", ["rev-parse", "HEAD"], {
           encoding: "utf8",
         }).trim(),
@@ -63,13 +63,13 @@ try {
       2,
     ),
   );
-  const destination = resolve("artifacts/quixforms-0.1.0-manual-test.tar.gz");
+  const destination = resolve("artifacts/quixforms-0.1.1-manual-test.tar.gz");
   execFileSync("tar", [
     "-czf",
     destination,
     "-C",
     stage,
-    "quixforms-0.1.0-manual-test",
+    "quixforms-0.1.1-manual-test",
   ]);
   console.log(destination);
   console.log(
