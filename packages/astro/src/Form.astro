@@ -1,7 +1,7 @@
 ---
 import { QuixForm } from './index';
 import './style.css';
-interface Props { id: string; siteKey?: string }
-const { id, siteKey } = Astro.props;
+interface Props { id: string; siteKey?: string; pluginId?: string }
+const { id, siteKey, pluginId } = Astro.props;
 ---
-<QuixForm id={id} siteKey={siteKey} client:load />
+<QuixForm id={id} siteKey={siteKey} pluginId={pluginId} client:load />

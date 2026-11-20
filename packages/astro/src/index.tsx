@@ -224,9 +224,11 @@ export function FormView({
 }
 export function QuixForm({
   id,
+  pluginId = "quixforms",
   siteKey: providedSiteKey,
 }: {
   id: string;
+  pluginId?: string;
   siteKey?: string;
 }) {
   const [form, setForm] = useState<Form>(),
@@ -242,7 +244,7 @@ export function QuixForm({
     setError("");
     attempt.current = undefined;
     fetch(
-      "/_emdash/api/plugins/quixforms/definition?id=" + encodeURIComponent(id),
+      "/_emdash/api/plugins/" + encodeURIComponent(pluginId) + "/definition?id=" + encodeURIComponent(id),
       { signal: abort.signal },
     )
       .then((r) => r.json())
@@ -259,7 +261,7 @@ export function QuixForm({
         if (!abort.signal.aborted) setError("Form unavailable");
       });
     return () => abort.abort();
-  }, [id, providedSiteKey]);
+  }, [id, providedSiteKey, pluginId]);
   useEffect(() => {
     if (!form || !siteKey || !container.current) return;
     let disposed = false;
@@ -300,7 +302,7 @@ export function QuixForm({
   if (!form) return <p role="status">{error || "Loading form…"}</p>;
   return (
     <FormView
-      key={id}
+      key={pluginId + ":" + id}
       form={form}
       onSubmit={async (values) => {
         if (siteKey && !token.current)
@@ -310,7 +312,7 @@ export function QuixForm({
           attempt.current = { body, key: crypto.randomUUID() };
         try {
           const response = await fetch(
-            "/_emdash/api/plugins/quixforms/submit",
+            "/_emdash/api/plugins/" + encodeURIComponent(pluginId) + "/submit",
             {
               method: "POST",
               headers: {

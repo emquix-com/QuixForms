@@ -624,11 +624,11 @@ export async function embed(
       {
         type: "code",
         language: "tsx",
-        code: `---\nimport Form from '@emquix/quixforms-astro/Form.astro';\n---\n<Form id="${id}" />`,
+        code: `---\nimport Form from '@emquix/quixforms-astro/Form.astro';\n---\n<Form id="${id}" pluginId=${JSON.stringify(c.plugin.id)} />`,
       },
       {
         type: "section",
-        text: `If your site has the dynamic companion route installed, open /forms/${id}. Publishing a form does not install that route. Public definition API: /_emdash/api/plugins/quixforms/definition?id=${id}`,
+        text: `Use the pluginId above with registry installations. If your site has the dynamic companion route installed, open /forms/${id}. Publishing a form does not install that route. Public definition API: /_emdash/api/plugins/${encodeURIComponent(c.plugin.id)}/definition?id=${id}`,
       },
       {
         type: "banner",

@@ -2,7 +2,7 @@
 
 **Powerful Forms. Effortless Building.** By [EmQuix](https://emquix.com). Free and MIT licensed.
 
-Version 0.1.0 development source. **Not production-ready or published.** This repository contains an original implementation of a sandboxed EmDash forms backend, Block Kit editor, optional native React editor and Astro renderer. It does not yet meet the full 0.1.0 acceptance targets. See [release report](docs/release-report.md).
+The sandboxed **[QuixForms 0.1.0](https://plugins.emdashcms.com/plugins/@emquix.com/quixforms)** is published in the EmDash registry. This repository contains the sandboxed backend and Block Kit editor, the optional free Advanced React editor, and the Astro renderer. Advanced and the renderer are separate source-installed packages. See the [release report](docs/release-report.md) for executed checks and remaining deployment limitations.
 
 ## Develop
 
@@ -28,7 +28,7 @@ npm test
 
 ## Manual acceptance installations
 
-Build `npm run build && npm run pack:candidate` to produce independently installable local npm tarballs. Build the official registry bundle with `npm run bundle:candidate`. No artifacts have been published.
+Install sandboxed Core from EmDash's Registry by searching for `@emquix.com/quixforms`. Build `npm run build && npm run pack:candidate` to produce the separate renderer, Advanced and installer tarballs; these npm packages are not yet published. Build the official registry bundle with `npm run bundle:candidate`.
 
 Follow the [manual installation and acceptance guide](docs/manual-testing.md) for:
 

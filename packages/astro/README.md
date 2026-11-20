@@ -1,3 +1,3 @@
 # @emquix/quixforms-astro
 
-QuixForms 0.1.0 public-source release candidate. See https://github.com/emquix-com/QuixForms for the installation and manual test guides. Not yet approved for public release.
+Free QuixForms public renderer. See https://github.com/emquix-com/QuixForms for source installation and manual test guides. For a registry-installed Core, copy the form ID and generated plugin ID from Embed & setup: `<Form id="FORM_ID" pluginId="INSTALLED_PLUGIN_ID" />`. Config-managed local Core defaults to `quixforms`. Version 0.1.1 supports generated registry IDs.

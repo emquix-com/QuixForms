@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.1.0 — unreleased development
+## 0.1.1 — registry integration correction
+
+The first clean registry installation revealed EmDash assigns an installation ID rather than the local `quixforms` ID. The Astro renderer accepts `pluginId` for definition and submission requests, and Core's embed instructions provide the actual ID. Added browser regression coverage and verified a real registry-backed public submission, inbox and CSV export. Core and renderer are 0.1.1; other native companions remain 0.1.0.
+
+## 0.1.0 — sandboxed registry release, 2026-11-20
+
+Published sandboxed Core as `@emquix.com/quixforms`; profile and release passed registry assessment. The public PDS archive's SHA-256 and byte count were verified. Native companions remain free, separately source-installed packages. See the release report for verification and deployment scope.
 
 ### 2026-11-20 release preparation
 

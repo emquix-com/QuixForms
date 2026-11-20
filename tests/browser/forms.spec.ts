@@ -6,6 +6,22 @@ async function chooseTemplate(page: Page, name = "Simple Contact Form") {
     .click();
 }
 import { template } from "../../packages/core/src/index";
+test("registry-assigned plugin IDs connect definition and accepted submission", async ({page}) => {
+  await page.route("**/_emdash/api/plugins/r_registry_install/definition?*", r => r.fulfill({json:{success:true,data:{ok:true,form:template('contact'),captchaRequired:false}}}));
+  let submitted = false;
+  await page.route("**/_emdash/api/plugins/r_registry_install/submit", r => {
+    submitted = true;
+    expect(r.request().postDataJSON()).toMatchObject({id:'contact',token:''});
+    return r.fulfill({json:{success:true,data:{ok:true,message:'Registry accepted'}}});
+  });
+  await page.goto('/registry-form');
+  await page.getByLabel('Your name').fill('Registry Visitor');
+  await page.getByLabel('Email address').fill('registry@example.com');
+  await page.getByLabel('How can we help?').fill('Registry route check');
+  await page.getByRole('button',{name:'Submit',exact:true}).click();
+  await expect(page.getByText('Registry accepted')).toBeVisible();
+  expect(submitted).toBe(true);
+});
 test("forms submit without loading CAPTCHA when the server reports it is off", async ({
   page,
 }) => {

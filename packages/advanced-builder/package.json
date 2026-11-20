@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@emquix/quixforms-engine": "0.1.0",
-    "@emquix/quixforms-astro": "0.1.0"
+    "@emquix/quixforms-astro": "0.1.1"
   },
   "peerDependencies": {
     "emdash": "1.3.1",

@@ -1,8 +1,46 @@
 # QuixForms 0.1.0 manual acceptance candidate
 
-Updated 2026-11-20. **Prepared for controlled manual testing; not approved for public production release.** No npm package, signed registry release or GitHub release has been published. Use synthetic data until the gates below are closed. The earlier target was November 30, 2026; launch timing remains subject to the outstanding acceptance gates.
+Updated 2026-11-20. **Sandboxed 0.1.0 is published and passed registry assessment and installation. A 0.1.1 integration correction is being prepared.** No npm package or GitHub release has been published. The historical acceptance gaps below remain separate from registry publication.
 
 ## 2026-11-20 Windows local verification
+
+### First sandboxed publication
+
+Published `@emquix.com/quixforms@0.1.0` through the official plugin CLI after
+renewing the existing publisher session. No immutable release was overwritten.
+The source revision is `bfb4e0b2a584acc66baf48876093072df76940e8`, whose
+[GitHub checks passed](https://github.com/emquix-com/QuixForms/actions/runs/44756151001).
+GitHub private vulnerability reporting is enabled and verified.
+
+- Profile: `at://did:plc:6clqzka76ueshbureaecbrfj/com.emdashcms.experimental.package.profile/quixforms`
+- Profile CID: `bafyreifs3wffqxwsdnup46572bn2ld5al25giz3mh2nw7yfoyylsqp7v44`
+- Release: `at://did:plc:6clqzka76ueshbureaecbrfj/com.emdashcms.experimental.package.release/quixforms:0.1.0`
+- Release CID: `bafyreih5s4q3wb3mek3zasyghi2wmxtxags2646wu3xz6teeiawazshitu`
+- Blob CID: `bafkreibxvk5wd26si4eepbziw5wvlr7lfzhkuit62p4jcki6okqzkrlsse`
+- Published archive: **25,422 bytes**, SHA-256 `37aabb61ebd24708478728b76d55c7eb2e4eaa227ed3f891291e72a195457291`
+
+Downloaded the actual public PDS blob and verified both its byte count and
+SHA-256 against the published candidate. Read back the authoritative profile
+and release: all five documentation sections, MIT license, canonical repository,
+EmDash `>=1.3.1 <1.4.0`, and the two declared capabilities match the candidate.
+Both profile and release passed automated assessment. The public listing renders
+all five sections. A clean EmDash 1.3.1 site verified signed publisher records
+and the artifact through the normal installation dialog, accepted the declared
+permissions, and installed Core under generated ID `r_4xtayw3d6d2fhnyc`.
+
+The registry journey exposed a renderer integration defect: source-installed
+Core used the ID `quixforms`, but registry installations receive a generated ID.
+Renderer 0.1.1 now accepts `pluginId` for both public API requests; Core 0.1.1's
+embed instructions include the host-provided ID. The new browser regression
+and the embed-context assertion cover that boundary. A real browser used the
+packed corrected renderer with the signed registry Core, edited and published
+`Registry release smoke`, submitted synthetic answers without CAPTCHA, and
+verified the inbox and CSV export with the same answers. No API mock was used.
+
+The correction passes 87 unit tests, 16 Chromium tests and 8 official sandbox
+tests (111 total), plus typecheck/build and official bundle validation. Windows
+browser-fixture teardown required ending its identified process tree after all
+16 checks completed; CI independently checks normal completion on Linux.
 
 ### Public repository and sandbox publishing preparation
 

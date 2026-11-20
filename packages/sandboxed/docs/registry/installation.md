@@ -14,10 +14,12 @@ Core's registry installation alone does not display forms on public pages. Insta
 ---
 import Form from '@emquix/quixforms-astro/Form.astro';
 ---
-<Form id="YOUR_PUBLISHED_FORM_ID" />
+<Form id="YOUR_PUBLISHED_FORM_ID" pluginId="YOUR_INSTALLED_PLUGIN_ID" />
 ```
 
 The renderer npm packages are not published yet. For the initial Core release, use the versioned local tarballs and instructions from the [source installation guide](https://github.com/emquix-com/QuixForms/blob/main/docs/manual-testing.md). Do not run an npm install command for an unavailable package. The repository includes a dynamic form route and a contact-page example.
+
+Copy both values from **Embed & setup** in Core. Registry installations receive a generated plugin ID; it is different from the package slug. Use renderer 0.1.1 or later to pass `pluginId`. Config-managed local installations default to `quixforms`.
 
 ## Email and CAPTCHA
 

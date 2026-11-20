@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 — registry renderer connection
+
+- Embed instructions use EmDash's actual installed plugin ID.
+- Renderer 0.1.1 accepts that ID for both definition and submission requests.
+- Verified the generated-ID journey after a fresh signed registry installation.
+
 ## 0.1.0 — first public-release candidate
 
 - Sandboxed form storage, native Block Kit builder and submission inbox.

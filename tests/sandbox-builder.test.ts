@@ -20,6 +20,7 @@ function fixture(form = template("sample"), configured = false) {
     revision = 1;
   const secret = "private-test-secret-do-not-display";
   const context = {
+    plugin: {id: "r_registry_install", version: "0.1.1"},
     settings: {
       get: async (key: string) =>
         configured
@@ -139,6 +140,8 @@ it("shows bounded dashboard counts and setup guidance without exposing credentia
     expect(text).toContain(configured ? "Keys configured" : "CAPTCHA off");
     expect(text).toContain("Forms on this page");
     const launch = JSON.stringify(await f.act("embed:sample"));
+    expect(launch).toContain("r_registry_install");
+    expect(launch).not.toContain("/plugins/quixforms/definition");
     expect(launch).toContain("@emquix/quixforms-astro/Form.astro");
     expect(launch).toContain(
       configured ? "verify a real submission" : "forms work without CAPTCHA",
