@@ -2,7 +2,7 @@
 
 This development version is not approved for production personal data. Do not deploy public collection forms until the release blockers in docs/release-report.md are resolved.
 
-Enable private GitHub vulnerability reporting before publishing. The manifest's proposed security URL is not yet an operational reporting channel. Do not post secrets or submission records in public issues.
+Private GitHub vulnerability reporting is enabled for this repository (verified 2026-11-20). Report sensitive issues through [Report a vulnerability](https://github.com/emquix-com/QuixForms/security/advisories/new). Do not post secrets or submission records in public issues.
 
 The current design uses host RBAC and CSRF enforcement, strict schemas, bounded requests, atomic revision writes, hidden-value stripping, Turnstile checks, and fixed administrator-controlled mail recipients. React escapes text; no HTML rendering, eval, raw SQL, arbitrary webhook URLs, payments, or file uploads are exposed.
 

@@ -13,4 +13,4 @@ The separate renderer and Advanced editor run as native site dependencies and ha
 
 Collect only necessary information, provide your own privacy notice, protect exports and configure retention appropriate to your site. No automatic retention or compliance certification is included. Notification delivery is attempted once; stored entries survive delivery failures.
 
-See the [security policy](https://github.com/emquix-com/QuixForms/security/policy). Do not put secrets, credentials or submission records in public issues. Private reporting availability must be confirmed before the first public release.
+See the [security policy](https://github.com/emquix-com/QuixForms/security/policy) and [report vulnerabilities privately](https://github.com/emquix-com/QuixForms/security/advisories/new). Do not put secrets, credentials or submission records in public issues.
