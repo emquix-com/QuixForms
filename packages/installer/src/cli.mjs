@@ -27,6 +27,11 @@ function read(path) {
   return readFileSync(path, "utf8");
 }
 function run(binary, parameters) {
+  if (process.platform === "win32" && binary === "npm") {
+    const npmCli = process.env.npm_execpath ?? join(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js");
+    parameters = [npmCli, ...parameters];
+    binary = process.execPath;
+  }
   execFileSync(binary, parameters, {
     cwd: root,
     stdio: "inherit",

@@ -1,5 +1,79 @@
 import { it, expect } from "vitest";
 import { createPluginTestHost } from "@emdash-cms/plugin-test";
+it("edits numeric bounds through the focused Block Kit builder without losing rules", async () => {
+  const host = await createPluginTestHost();
+  try {
+    const form = {
+      schemaVersion: 1,
+      id: "quantities",
+      title: "Quantity request",
+      status: "published",
+      fields: [
+        { id: "email", type: "email", label: "Email", required: true },
+        {
+          id: "quantity",
+          type: "number",
+          label: "Quantity",
+          required: true,
+          showWhen: { field: "email", op: "notEmpty" },
+        },
+      ],
+      confirmation: "Thank you",
+    };
+    const initial = (await host.invokeRoute("save", {
+      form,
+      revision: null,
+    })) as { ok: boolean; revision: string };
+    expect(initial.ok).toBe(true);
+    const selected = await host.invokeRoute("admin", {
+      type: "block_action",
+      action_id: `select:quantities:${encodeURIComponent(initial.revision)}:quantity:0`,
+    });
+    expect(JSON.stringify(selected)).toContain("Minimum value (optional)");
+    await host.invokeRoute("admin", {
+      type: "form_submit",
+      action_id: `field:quantities:${encodeURIComponent(initial.revision)}:quantity:0`,
+      values: {
+        label: "Items requested",
+        description: "Choose a quantity",
+        placeholder: "1 to 10",
+        width: "half",
+        required: true,
+        min: "1",
+        max: "10",
+      },
+    });
+    const read = await host.invokeRoute("read", { id: "quantities" });
+    expect(read).toMatchObject({
+      value: {
+        current: {
+          fields: [
+            { id: "email", required: true },
+            {
+              id: "quantity",
+              label: "Items requested",
+              min: 1,
+              max: 10,
+              width: "half",
+              showWhen: { field: "email", op: "notEmpty" },
+            },
+          ],
+        },
+      },
+    });
+    expect(
+      await host.invokeRoute("submit", {
+        id: "quantities",
+        values: { email: "test@example.com", quantity: 11 },
+        key: "00000000-0000-4000-8000-000000000000",
+        token: "test",
+      }),
+    ).toMatchObject({ ok: false, error: "VALIDATION" });
+    expect(await host.storage("entries").list()).toHaveLength(0);
+  } finally {
+    await host.dispose();
+  }
+});
 it("creates, publishes, reads and rejects invalid submissions across the sandbox boundary", async () => {
   const host = await createPluginTestHost();
   try {
@@ -96,7 +170,13 @@ it("enforces authentication, permission and CSRF at the production dispatcher", 
         })
       ).status,
     ).toBe(403);
-    for (const route of ["read", "entries", "entries/read", "export"]) {
+    for (const route of [
+      "read",
+      "entries",
+      "entries/read",
+      "export",
+      "setup",
+    ]) {
       expect(
         (
           await host.actions.routes.request(route, {
@@ -184,6 +264,7 @@ it("stores one accepted submission through runtime routes with a stubbed CAPTCHA
         {
           to: "support@example.com",
           subject: "Accepted request",
+          body: "New entry for {form_title}\n{all_fields}\nReference: {entry_reference}",
           when: {
             op: "and",
             rules: [{ field: "email", op: "contains", value: "@example.com" }],
@@ -204,6 +285,10 @@ it("stores one accepted submission through runtime routes with a stubbed CAPTCHA
     });
     expect(await saved.json()).toMatchObject({ data: { ok: true } });
     await host.fixtures.plugin.setting("turnstileSecret", "test-only-secret");
+    await host.fixtures.plugin.setting(
+      "turnstileSiteKey",
+      "test-only-site-key",
+    );
     await host.http.respond(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
       Response.json({
@@ -231,6 +316,7 @@ it("stores one accepted submission through runtime routes with a stubbed CAPTCHA
     expect((await host.inspect.email())[0]).toMatchObject({
       to: "support@example.com",
       subject: "Accepted request",
+      text: "New entry for Contact\nEmail: visitor@example.com\nReference: contact_00000000-0000-4000-8000-000000000000",
     });
     await host.http.respond(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",

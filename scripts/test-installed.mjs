@@ -168,6 +168,7 @@ try {
         rules: [{ field: "name", op: "eq", value: "Jane" }],
       });
       await page.getByRole("button", { name: "Settings", exact: true }).click();
+      await page.getByRole("button", { name: "Notifications", exact: true }).click();
       await page
         .getByLabel("Subject", { exact: true })
         .fill("Updated in Advanced");
@@ -212,8 +213,8 @@ try {
       }
     }
     await page
-      .getByText(title, { exact: true })
-      .locator("..")
+      .getByRole("row")
+      .filter({ has: page.getByText(title, { exact: true }) })
       .getByRole("button", { name: "Edit", exact: true })
       .click();
     assert.equal(

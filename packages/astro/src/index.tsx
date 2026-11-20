@@ -249,7 +249,11 @@ export function QuixForm({
       .then((r) => {
         if (!r.data?.ok) throw new Error();
         setForm({ ...r.data.form, notifications: [] });
-        setSiteKey(providedSiteKey ?? r.data.siteKey ?? "");
+        setSiteKey(
+          r.data.captchaRequired === false
+            ? ""
+            : (providedSiteKey ?? r.data.siteKey ?? ""),
+        );
       })
       .catch(() => {
         if (!abort.signal.aborted) setError("Form unavailable");
@@ -299,7 +303,8 @@ export function QuixForm({
       key={id}
       form={form}
       onSubmit={async (values) => {
-        if (!token.current) throw new Error("Please complete the bot check.");
+        if (siteKey && !token.current)
+          throw new Error("Please complete the bot check.");
         const body = JSON.stringify(values);
         if (!attempt.current || attempt.current.body !== body)
           attempt.current = { body, key: crypto.randomUUID() };
@@ -342,10 +347,7 @@ export function QuixForm({
       }}
     >
       <div ref={container} />
-      <p role="status">
-        {error ||
-          (!siteKey ? "This form needs bot protection configured." : "")}
-      </p>
+      <p role="status">{error}</p>
     </FormView>
   );
 }

@@ -9,7 +9,7 @@ import {
   chmodSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, delimiter } from "node:path";
 import { spawnSync } from "node:child_process";
 const cli = resolve("packages/installer/src/cli.mjs");
 function fixture(fail = false) {
@@ -37,10 +37,17 @@ function fixture(fail = false) {
     `#!/bin/sh\nprintf changed > package-lock.json\n${fail ? "exit 1" : "exit 0"}\n`,
   );
   chmodSync(join(dir, "bin/npm"), 0o755);
+  const npmStub = join(dir, "bin/npm.cjs");
+  writeFileSync(npmStub, `require('node:fs').writeFileSync('package-lock.json', 'changed'); process.exit(${fail ? 1 : 0});`);
   const run = (...args: string[]) =>
     spawnSync(process.execPath, [cli, ...args, "--project", dir], {
       encoding: "utf8",
-      env: { ...process.env, PATH: join(dir, "bin") + ":" + process.env.PATH },
+      timeout: 10_000,
+      env: {
+        ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(path|npm_execpath)$/i.test(key))),
+        PATH: join(dir, "bin") + delimiter + process.env.PATH,
+        npm_execpath: npmStub,
+      },
     });
   return {
     dir,

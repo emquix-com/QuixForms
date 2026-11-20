@@ -1,6 +1,6 @@
 import type { PluginContext } from "emdash/plugin";
 import type { Block, BlockResponse, ButtonElement } from "@emdash-cms/blocks";
-import { z } from "zod";
+import * as z from "@emquix/quixforms-engine/schema";
 import type { Rule } from "@emquix/quixforms-engine";
 import { forms, save } from "./plugin";
 const button = (label: string, action_id: string): ButtonElement => ({
@@ -68,7 +68,14 @@ export async function logicAction(
     action.split(":");
   const [rawMode, ...parts] = location.split(".");
   const mode = z.enum(["showWhen", "requiredWhen", "when"]).parse(rawMode);
-  const path = parts.map((n) => z.coerce.number().int().min(0).max(9).parse(n));
+  const path = parts.map((n) =>
+    z.coerce
+      .number()
+      .check(z.refine(Number.isSafeInteger))
+      .check(z.minimum(0))
+      .check(z.maximum(9))
+      .parse(n),
+  );
   if (path.length > 4) throw new Error("Rule editor depth exceeded");
   const row = await forms(c).getVersioned(id);
   if (!row) throw new Error("Missing form");
@@ -77,9 +84,9 @@ export async function logicAction(
     mode === "when"
       ? z.coerce
           .number()
-          .int()
-          .min(0)
-          .max(4)
+          .check(z.refine(Number.isSafeInteger))
+          .check(z.minimum(0))
+          .check(z.maximum(4))
           .parse(/^n_(\d)$/.exec(fieldId)?.[1])
       : undefined;
   const field =
@@ -89,7 +96,11 @@ export async function logicAction(
       ? undefined
       : form.notifications[notificationIndex];
   const target:
-    | { showWhen?: Rule; requiredWhen?: Rule; when?: Rule }
+    | {
+        showWhen?: Rule;
+        requiredWhen?: Rule;
+        when?: Rule;
+      }
     | undefined = notification ?? field;
   if (!target) throw new Error("Missing condition target");
   const title = notification
@@ -138,7 +149,7 @@ export async function logicAction(
         operator = z.enum(operators).parse(values.operator),
         comparison = z
           .string()
-          .max(500)
+          .check(z.maxLength(500))
           .parse(values.value ?? "");
       const sourceField = form.fields.find((f) => f.id === ref);
       if (!sourceField) throw new Error("Unknown field");
@@ -250,7 +261,15 @@ export async function logicAction(
     );
     return { blocks };
   }
-  function leaf(rule: Extract<Rule, { field: string }>, at: number[]) {
+  function leaf(
+    rule: Extract<
+      Rule,
+      {
+        field: string;
+      }
+    >,
+    at: number[],
+  ) {
     blocks.push(
       {
         type: "form",

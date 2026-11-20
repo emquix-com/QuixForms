@@ -1,6 +1,6 @@
 # QuixForms
 
-**Powerful Forms. Effortless Building.** By Webtaculos · Future ecosystem: EmQuix.
+**Powerful Forms. Effortless Building.** By [EmQuix](https://emquix.com). Free and MIT licensed.
 
 Version 0.1.0 development source. **Not production-ready or published.** This repository contains an original implementation of a sandboxed EmDash forms backend, Block Kit editor, optional native React editor and Astro renderer. It does not yet meet the full 0.1.0 acceptance targets. See [release report](docs/release-report.md).
 
@@ -38,19 +38,24 @@ Follow the [manual installation and acceptance guide](docs/manual-testing.md) fo
 
 The CLI is `node packages/installer/src/cli.mjs`. It accepts `--project` and `--artifacts` absolute paths, verifies checksums and runs the site's production build. npm is tested; a full pnpm journey is pending. Complex config receives a manual fallback. Registration belongs in `astro.config.mjs`'s EmDash integration.
 
-Core's admin path is `/_emdash/admin/plugins/quixforms/forms`; Advanced is `/_emdash/admin/plugins/quixforms-advanced`. Configure Turnstile through plugin settings and EmDash's email transport. Public submissions fail closed without bot protection. Core's eventual registry install will require no npm, but signed registry publication/installation is not yet verified.
+Core's admin path is `/_emdash/admin/plugins/quixforms/forms`; Advanced is `/_emdash/admin/plugins/quixforms-advanced`. Turnstile is optional: without both keys, forms accept submissions without CAPTCHA. With both keys configured, submissions require successful verification. Configure it through plugin settings and configure EmDash's email transport separately. Core's eventual registry install will require no npm, but signed registry publication/installation is not yet verified.
 
 For public rendering, use `import Form from '@emquix/quixforms-astro/Form.astro'` and `<Form id="YOUR_FORM_ID" />` on a host with `@astrojs/react`. The component loads published definitions dynamically. See `examples/companion-page.astro` for a dynamic route. Initial native/renderer integration requires rebuilding and redeploying. Core cannot inject forms into an arbitrary theme.
 
 Core is the only data owner. Removing Advanced retains forms and entries. All packages remain private until publication approval.
+
+Both editors support plain-text notification message bodies with `{all_fields}`,
+`{form_title}` and `{entry_reference}` tags. Leave the body blank to send all
+accepted answers automatically.
 
 ## Documentation
 
 - [Architecture and verified host contracts](docs/architecture.md)
 - [Competitor assessment and research gaps](docs/comparison.md)
 - [Release report and remaining acceptance work](docs/release-report.md)
+- [Sandboxed 0.1.0 publishing plan](docs/publishing-plan.md)
 - [Security policy](SECURITY.md)
 
 Original code is MIT licensed. Dependency license inventory is provided separately; an inventory is not legal certification.
 
-Development repository: https://github.com/alexandru-b/QuixForms (private). Browser fixture screenshots are in `docs/screenshots`. See the release report for the current verified feature set and remaining gates.
+Public source repository: https://github.com/emquix-com/QuixForms. Browser fixture screenshots are in `docs/screenshots`. See the release report for the current verified feature set and remaining gates.

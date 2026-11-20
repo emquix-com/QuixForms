@@ -1,0 +1,51 @@
+---
+import Form from '@emquix/quixforms-astro/Form.astro';
+// Replace with the published form ID from QuixForms → Embed & setup.
+const formId = 'your_form_id';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contact us · QuixForms</title>
+  </head>
+  <body>
+    <header><a href="/contact">QuixForms<span>LET’S CONNECT</span></a></header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">A CONVERSATION STARTS HERE</p>
+        <h1>Good ideas start<br />with a hello.</h1>
+        <p class="lead">Have a question, a project in mind, or something you’d like to share? Leave a message using the form.</p>
+        <div class="details"><span>01</span><p><strong>Tell us a little about yourself.</strong><br />A name, an email, and what’s on your mind.</p></div>
+        <div class="details"><span>02</span><p><strong>Make room for the next step.</strong><br />A clear message helps start a useful conversation.</p></div>
+      </section>
+      <section class="form-card" aria-label="Send a message"><Form id={formId} /></section>
+    </main>
+    <footer>Built with QuixForms <span>Powerful forms. Effortless building.</span></footer>
+  </body>
+</html>
+<style is:global>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #faf8f4; color: #272c2a; font-family: system-ui, sans-serif; }
+  header, main, footer { max-width: 1200px; margin: auto; }
+  header { padding: 30px 32px; border-bottom: 1px solid #dfdfd7; }
+  header a { display: flex; justify-content: space-between; align-items: center; color: inherit; text-decoration: none; font-weight: 800; font-size: 23px; }
+  header span, .eyebrow { font-size: 11px; letter-spacing: .15em; font-weight: 700; color: #8b421d; }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; padding: 76px 32px 88px; }
+  h1 { font-size: clamp(38px, 4.5vw, 58px); line-height: 1.09; letter-spacing: -.05em; font-weight: 650; margin: 23px 0; }
+  .lead { font-size: 17px; line-height: 1.8; color: #59605b; max-width: 425px; margin-bottom: 38px; }
+  .details { display: flex; align-items: flex-start; gap: 17px; padding: 18px 0; border-top: 1px solid #dedfd7; }
+  .details span { color: #8b421d; font-size: 12px; margin-top: 4px; }
+  .details p { margin: 0; color: #59605b; line-height: 1.75; font-size: 14px; }
+  .details strong { color: #272c2a; font-weight: 600; }
+  .form-card { padding: 35px; background: #fff; border: 1px solid #e4e3dd; border-radius: 16px; box-shadow: 0 18px 55px #30352f08; min-width: 0; }
+  .form-card .quixforms { margin: 0; max-width: none; padding: 0; border: 0; }
+  .form-card .quixforms h2 { font-size: 25px; letter-spacing: -.03em; margin: 0 0 26px; }
+  .form-card .quixforms input, .form-card .quixforms textarea { background: #fcfcfa; border: 1px solid #c9cec6; border-radius: 7px; padding: 12px; }
+  .form-card .quixforms textarea { min-height: 125px; }
+  .form-card .quixforms button { background: #99441b; color: #fff; border: 0; border-radius: 7px; padding: 13px 25px; font-weight: 650; cursor: pointer; }
+  .form-card .quixforms button:disabled { opacity: .65; cursor: default; }
+  footer { padding: 25px 32px; border-top: 1px solid #dfdfd7; color: #59605b; display: flex; justify-content: space-between; font-size: 12px; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; gap: 35px; padding: 40px 22px; } header, footer { padding: 24px 22px; } header span, footer span { display: none; } .form-card { padding: 25px; } }
+</style>

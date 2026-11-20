@@ -1,6 +1,9 @@
 import type { SandboxedPlugin, PluginContext } from "emdash/plugin";
 import type { StorageCollection } from "emdash";
-import { z } from "zod";
+import * as z from "@emquix/quixforms-engine/schema";
+// EmDash's MCP metadata contract requires classic Zod. The official compiler
+// strips this metadata (and its unused import) from the sandbox runtime.
+import { z as metadata } from "zod";
 import {
   parseForm,
   template,
@@ -12,16 +15,34 @@ import {
 } from "@emquix/quixforms-engine";
 import { eraseEntry } from "./entries";
 import { admin } from "./ui";
+import { notificationMessage } from "@emquix/quixforms-engine/submissions";
 import { digest, allowSubmission } from "./abuse";
 import type { Entry } from "./entries";
 import { listEntries, readEntry, updateEntry, entriesCsv } from "./entries";
-export type RecordForm = { current: Form; history: Form[] };
+export type RecordForm = {
+  current: Form;
+  history: Form[];
+};
+async function captchaSettings(ctx: PluginContext) {
+  const [site, secret] = await Promise.all([
+    ctx.settings.get<string>("turnstileSiteKey"),
+    ctx.settings.get<string>("turnstileSecret"),
+  ]);
+  return typeof site === "string" &&
+    site.trim() &&
+    typeof secret === "string" &&
+    secret.trim()
+    ? { siteKey: site.trim(), secret: secret.trim() }
+    : null;
+}
 export const forms = (ctx: PluginContext) =>
   ctx.storage.forms as StorageCollection<RecordForm>;
 export async function save(ctx: PluginContext, input: unknown) {
   const p = z
-    .object({ form: z.unknown(), revision: z.string().max(128).nullable() })
-    .strict()
+    .strictObject({
+      form: z.unknown(),
+      revision: z.nullable(z.string().check(z.maxLength(128))),
+    })
     .parse(input);
   const form = parseForm(p.form);
   const old = await forms(ctx).getVersioned(form.id);
@@ -43,15 +64,16 @@ export async function save(ctx: PluginContext, input: unknown) {
     current: form,
     history,
   });
-
   return result.applied
     ? { ok: true as const, revision: result.revision }
     : { ok: false as const, error: "CONFLICT" };
 }
 export async function duplicateForm(ctx: PluginContext, input: unknown) {
   const q = z
-    .object({ id: idSchema, revision: z.string().min(1).max(128) })
-    .strict()
+    .strictObject({
+      id: idSchema,
+      revision: z.string().check(z.minLength(1)).check(z.maxLength(128)),
+    })
     .parse(input);
   const row = await forms(ctx).getVersioned(q.id);
   if (!row || row.revision !== q.revision)
@@ -68,16 +90,25 @@ export async function duplicateForm(ctx: PluginContext, input: unknown) {
 const formId = z.object({ id: idSchema });
 const listInput = z.object({
   id: idSchema,
-  cursor: z.string().max(2000).optional(),
+  cursor: z.optional(z.string().check(z.maxLength(2000))),
 });
 const plugin: SandboxedPlugin = {
   routes: {
     admin: { methods: ["POST"], permission: "plugins:manage", handler: admin },
+    setup: {
+      methods: ["GET"],
+      permission: "plugins:manage",
+      handler: async (_r, c) => {
+        return {
+          turnstileConfigured: !!(await captchaSettings(c)),
+        };
+      },
+    },
     list: {
       methods: ["GET"],
       permission: "plugins:manage",
       handler: async (r, c) => {
-        const p = z.object({ cursor: z.string().optional() }).parse(r.input);
+        const p = z.object({ cursor: z.optional(z.string()) }).parse(r.input);
         return forms(c).query({ limit: 20, cursor: p.cursor });
       },
     },
@@ -115,12 +146,15 @@ const plugin: SandboxedPlugin = {
       permission: "plugins:manage",
       handler: async (r, c) => {
         const q = z
-          .object({
+          .strictObject({
             id: idSchema,
-            revision: z.string().min(1).max(128),
-            index: z.number().int().min(0).max(9),
+            revision: z.string().check(z.minLength(1)).check(z.maxLength(128)),
+            index: z
+              .number()
+              .check(z.refine(Number.isSafeInteger))
+              .check(z.minimum(0))
+              .check(z.maximum(9)),
           })
-          .strict()
           .parse(r.input);
         const row = await forms(c).getVersioned(q.id);
         if (!row || row.revision !== q.revision)
@@ -153,10 +187,12 @@ const plugin: SandboxedPlugin = {
         const data = await forms(c).get(p.data.id);
         if (data?.current.status !== "published") return { ok: false };
         const { notifications, ...form } = data.current;
+        const captcha = await captchaSettings(c);
         return {
           ok: true,
           form,
-          siteKey: await c.settings.get("turnstileSiteKey"),
+          captchaRequired: !!captcha,
+          siteKey: captcha?.siteKey ?? "",
         };
       },
     },
@@ -166,14 +202,13 @@ const plugin: SandboxedPlugin = {
       request: { body: "json", maxBytes: 65536 },
       handler: async (r, c) => {
         const p = z
-          .object({
+          .strictObject({
             id: idSchema,
             values: z.unknown(),
-            token: z.string().min(1).max(2048),
-            key: z.string().uuid(),
-            website: z.string().max(200).default(""),
+            token: z._default(z.string().check(z.maxLength(2048)), ""),
+            key: z.uuid(),
+            website: z._default(z.string().check(z.maxLength(200)), ""),
           })
-          .strict()
           .safeParse(r.input);
         if (!p.success || p.data.website)
           return { ok: false, error: "INVALID_SUBMISSION" };
@@ -186,8 +221,7 @@ const plugin: SandboxedPlugin = {
             c,
             x.id,
             z
-              .object({ ip: z.string().nullable().optional() })
-              .passthrough()
+              .looseObject({ ip: z.optional(z.nullable(z.string())) })
               .safeParse(r.requestMeta).data?.ip ?? null,
           ))
         )
@@ -211,34 +245,38 @@ const plugin: SandboxedPlugin = {
           return existing.fingerprint === fingerprint
             ? { ok: true, reference: key, message: existing.form.confirmation }
             : { ok: false, error: "IDEMPOTENCY_CONFLICT" };
-        const secret = await c.settings.get<string>("turnstileSecret");
-        if (!secret || !c.http)
-          return { ok: false, error: "PROTECTION_UNAVAILABLE" };
-        try {
-          const res = await c.http.fetch(
-            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded" },
-              body: new URLSearchParams({
-                secret,
-                response: x.token,
-              }).toString(),
-            },
-          );
-          const result = (await res.json()) as {
-            success?: boolean;
-            action?: string;
-            hostname?: string;
-          };
-          if (
-            !result.success ||
-            result.action !== "quixforms" ||
-            result.hostname !== new URL(r.request.url).hostname
-          )
+        const captcha = await captchaSettings(c);
+        if (captcha) {
+          if (!x.token) return { ok: false, error: "BOT_CHECK" };
+          if (!c.http) return { ok: false, error: "PROTECTION_UNAVAILABLE" };
+          try {
+            const res = await c.http.fetch(
+              "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams({
+                  secret: captcha.secret,
+                  response: x.token,
+                }).toString(),
+              },
+            );
+            const result = (await res.json()) as {
+              success?: boolean;
+              action?: string;
+              hostname?: string;
+            };
+            if (
+              !result.success ||
+              result.action !== "quixforms" ||
+              result.hostname !== new URL(r.request.url).hostname
+            )
+              return { ok: false, error: "BOT_CHECK" };
+          } catch {
             return { ok: false, error: "BOT_CHECK" };
-        } catch {
-          return { ok: false, error: "BOT_CHECK" };
+          }
         }
         const created = await c.storage.entries.compareAndSet(key, null, {
           fingerprint,
@@ -270,9 +308,7 @@ const plugin: SandboxedPlugin = {
             await c.email.send({
               to: n.to,
               subject: n.subject,
-              text: form.fields
-                .map((f) => `${f.label}: ${checked.values[f.id] ?? ""}`)
-                .join("\n"),
+              text: notificationMessage(form, n.body, checked.values, key),
             });
           } catch {
             failed = true;
@@ -331,7 +367,11 @@ const plugin: SandboxedPlugin = {
       readForm: {
         description: "Read a form definition. Does not include submissions.",
         route: "read",
-        input: formId,
+        input: metadata.object({
+          id: metadata
+            .string()
+            .regex(/^(?!constructor$|prototype$)[a-z][a-z0-9_]{0,63}$/),
+        }),
         destructive: false,
       },
     },

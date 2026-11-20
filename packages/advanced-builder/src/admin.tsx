@@ -1,105 +1,278 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  fieldTypes,
-  registry,
   parseForm,
-  template,
+  registry,
   type Form,
   type Field,
 } from "@emquix/quixforms-engine";
 import {
   createTemplate,
-  templateCatalog,
   type TemplateId,
 } from "@emquix/quixforms-engine/templates";
-import { FormView } from "@emquix/quixforms-astro";
 import "@emquix/quixforms-astro/style.css";
 import "./style.css";
+import "./advanced.css";
 import { api } from "./api";
-import { Logic } from "./logic";
+import { fieldLabels } from "./field-options";
 import { Settings } from "./settings";
 import { Entries } from "./entries";
+import { FormLibrary, type LibraryForm } from "./form-library";
+import { FieldWorkspace } from "./field-workspace";
+import { EmbedDialog } from "./embed-dialog";
+import { Modal } from "./modal";
+type View = "fields" | "settings" | "entries";
 export function Builder() {
-  const [list, setList] = useState<
-      Array<{ id: string; data: { current: Form } }>
-    >([]),
+  const [list, setList] = useState<LibraryForm[]>([]),
+    [listCursor, setListCursor] = useState<string>(),
     [form, setForm] = useState<Form>(),
-    [revision, setRevision] = useState<string | null>(null),
-    [selected, setSelected] = useState(""),
-    [search, setSearch] = useState(""),
-    [templateId, setTemplateId] = useState<TemplateId>("contact"),
-    [message, setMessage] = useState(""),
-    [listCursor, setListCursor] = useState<string | undefined>(),
-    [past, setPast] = useState<Form[]>([]),
-    [future, setFuture] = useState<Form[]>([]),
-    [mobile, setMobile] = useState(false),
+    [revision, setRevision] = useState<string | null>(null);
+  const [selected, setSelected] = useState(""),
+    [view, setView] = useState<View>("fields"),
     [preview, setPreview] = useState(false),
-    [showEntries, setShowEntries] = useState(false),
-    [showSettings, setShowSettings] = useState(false),
+    [embed, setEmbed] = useState(false),
+    [help, setHelp] = useState(false),
+    [fullscreen, setFullscreen] = useState(false);
+  const [past, setPast] = useState<Form[]>([]),
+    [future, setFuture] = useState<Form[]>([]),
+    [message, setMessage] = useState(""),
     [dirty, setDirty] = useState(false),
-    [busy, setBusy] = useState(false),
+    [working, setBusy] = useState(false),
+    [restoring, setRestoring] = useState(false),
+    [loading, setLoading] = useState(true),
     [autoPaused, setAutoPaused] = useState(false);
-  const latest = useRef(form);
+  const busy = working || restoring;
+  const latest = useRef(form),
+    saving = useRef(false);
   latest.current = form;
-  const saving = useRef(false);
+  useEffect(() => {
+    let active = true;
+    api("list")
+      .then((result) => {
+        if (active) {
+          setList(result.items);
+          setListCursor(result.cursor);
+        }
+      })
+      .catch((error) => {
+        if (active) setMessage(error.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   useEffect(() => {
     if (!form || form.status !== "draft" || !dirty || busy || autoPaused)
       return;
+    try {
+      parseForm(form);
+    } catch {
+      return;
+    }
     const timer = setTimeout(() => {
       void persist();
     }, 1500);
     return () => clearTimeout(timer);
   }, [form, dirty, busy, revision, autoPaused]);
   useEffect(() => {
-    api("list")
-      .then((r) => {
-        setList(r.items);
-        setListCursor(r.cursor);
-      })
-      .catch((e) => setMessage(e.message));
-  }, []);
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
+    const handler = (event: BeforeUnloadEvent) => {
       if (dirty) {
-        e.preventDefault();
-        e.returnValue = "";
+        event.preventDefault();
+        event.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
-  function change(next: Form) {
-    if (!form) return;
-    setPast([...past.slice(-49), form]);
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !document.querySelector("dialog[open]"))
+        setFullscreen(false);
+      if (!(event.ctrlKey || event.metaKey) || !form) return;
+      if (event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (view !== "entries") void persist();
+      }
+      const editable = (event.target as HTMLElement).closest?.(
+        "input, textarea, select, [contenteditable=true]",
+      );
+      if (event.key.toLowerCase() === "z" && !editable) {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [form, revision, dirty, busy, past, future, view]);
+  useEffect(() => {
+    if (!fullscreen || !form) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [fullscreen, form?.id]);
+  function resetEditor(next: Form, rev: string | null, isDirty = false) {
+    latest.current = next;
+    setForm(next);
+    setRevision(rev);
+    setSelected("");
+    setPast([]);
     setFuture([]);
+    setDirty(isDirty);
+    setAutoPaused(false);
+    setView("fields");
+    setPreview(false);
+    setMessage("");
+  }
+  function change(next: Form) {
+    if (!form || restoring) return;
+    setPast((rows) => [...rows.slice(-49), form]);
+    setFuture([]);
+    latest.current = next;
     setForm(next);
     setDirty(true);
   }
-  async function persist() {
-    if (!form || saving.current) return;
-    const snapshot = form;
+  function undo() {
+    if (!form || busy || !past.length) return;
+    const next = { ...past.at(-1)!, status: form.status };
+    setFuture((rows) => [form, ...rows]);
+    setPast((rows) => rows.slice(0, -1));
+    latest.current = next;
+    setForm(next);
+    setDirty(true);
+  }
+  function redo() {
+    if (!form || busy || !future.length) return;
+    const next = { ...future[0], status: form.status };
+    setPast((rows) => [...rows.slice(-49), form]);
+    setFuture((rows) => rows.slice(1));
+    latest.current = next;
+    setForm(next);
+    setDirty(true);
+  }
+  async function persist(status?: Form["status"]): Promise<boolean> {
+    if (!form || saving.current || restoring) return false;
+    const original = form,
+      snapshot = status ? { ...form, status } : form;
     saving.current = true;
     setBusy(true);
     try {
-      parseForm(form);
-      const r = await api("save", { form, revision });
-      if (!r.ok)
+      parseForm(snapshot);
+      const result = await api("save", { form: snapshot, revision });
+      if (!result.ok)
         throw new Error(
-          r.error === "CONFLICT"
+          result.error === "CONFLICT"
             ? "Another editor changed this form. Reopen it before saving."
             : "Check the form configuration.",
         );
-      setRevision(r.revision);
-      setDirty(latest.current !== snapshot);
+      setRevision(result.revision);
+      const newerEdits = latest.current !== original;
+      if (status) {
+        const next = newerEdits ? { ...latest.current!, status } : snapshot;
+        latest.current = next;
+        setForm(next);
+      }
+      setDirty(newerEdits);
       setAutoPaused(false);
-      setMessage("Saved");
-    } catch (e) {
+      setMessage(
+        status
+          ? (status === "published" ? "Form published." : "Form unpublished.") +
+              (newerEdits ? " Newer edits are still unsaved." : "")
+          : "Saved",
+      );
+      return true;
+    } catch (error) {
       setAutoPaused(true);
-      setMessage(e instanceof Error ? e.message : "Save failed");
+      setMessage(
+        error && typeof error === "object" && "issues" in error
+          ? "Check field labels, choices, number ranges and conditions before saving."
+          : error instanceof Error
+            ? error.message
+            : "Save failed.",
+      );
+      return false;
     } finally {
       saving.current = false;
       setBusy(false);
     }
+  }
+  async function openForm(id: string, entries = false) {
+    setBusy(true);
+    try {
+      const row = await api("read?id=" + encodeURIComponent(id));
+      const next = parseForm(row.value.current);
+      resetEditor(next, row.revision);
+      if (entries) setView("entries");
+      return true;
+    } catch {
+      setMessage(
+        "Could not open the form. Check permissions and the supported definition version.",
+      );
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function allForms() {
+    if (
+      busy ||
+      (dirty &&
+        !window.confirm("Discard unsaved changes and return to all forms?"))
+    )
+      return;
+    setBusy(true);
+    try {
+      const result = await api("list");
+      setList(result.items);
+      setListCursor(result.cursor);
+      latest.current = undefined;
+      setForm(undefined);
+      setRevision(null);
+      setDirty(false);
+      setEmbed(false);
+      setFullscreen(false);
+      setMessage("");
+    } catch {
+      setMessage("Could not load forms.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function loadMore() {
+    setBusy(true);
+    try {
+      const result = await api(
+        "list?cursor=" + encodeURIComponent(listCursor!),
+      );
+      setList((rows) => [...rows, ...result.items]);
+      setListCursor(result.cursor);
+    } catch {
+      setMessage("Could not load more forms.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  function create(id: TemplateId, title?: string) {
+    resetEditor(
+      createTemplate(id, "f_" + crypto.randomUUID().replaceAll("-", ""), title),
+      null,
+      true,
+    );
+  }
+  function addField(type: Field["type"], index?: number) {
+    if (!form || form.fields.length >= 100) return;
+    const next = registry[type].create(
+      "f_" + crypto.randomUUID().replaceAll("-", ""),
+    );
+    next.label = fieldLabels[type];
+    const fields = [...form.fields];
+    fields.splice(index ?? fields.length, 0, next);
+    change({ ...form, fields });
+    setSelected(next.id);
   }
   function move(from: number, to: number) {
     if (!form || from === to) return;
@@ -107,436 +280,273 @@ export function Builder() {
     fields.splice(to, 0, fields.splice(from, 1)[0]);
     change({ ...form, fields });
   }
+  function duplicateField(id: string) {
+    if (!form || form.fields.length >= 100) return;
+    const index = form.fields.findIndex((field) => field.id === id);
+    if (index < 0) return;
+    const copy = {
+      ...structuredClone(form.fields[index]),
+      id: "f_" + crypto.randomUUID().replaceAll("-", ""),
+    };
+    const fields = [...form.fields];
+    fields.splice(index + 1, 0, copy);
+    change({ ...form, fields });
+    setSelected(copy.id);
+  }
+  function deleteField(id: string) {
+    if (!form) return;
+    const field = form.fields.find((f) => f.id === id);
+    if (!field) return;
+    const next = { ...form, fields: form.fields.filter((f) => f.id !== id) };
+    try {
+      parseForm(next);
+    } catch {
+      setMessage(
+        "This field is used by Smart Logic. Update its references before deleting it.",
+      );
+      return;
+    }
+    if (
+      !window.confirm("Delete “" + field.label + "”? You can undo this change.")
+    )
+      return;
+    change(next);
+    if (selected === id) setSelected("");
+  }
+  async function duplicateForm() {
+    if (!form || dirty || !revision || busy) return;
+    setBusy(true);
+    try {
+      const result = await api("duplicate", { id: form.id, revision });
+      if (!result.ok)
+        throw new Error(
+          "Could not duplicate. Reopen the saved form and try again.",
+        );
+      if (await openForm(result.id))
+        setMessage("Draft copy created. Entries remain on the original form.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Could not duplicate.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   if (!form)
     return (
-      <div className="qf-builder">
-        <h1>QuixForms</h1>
-        <p>Powerful Forms. Effortless Building.</p>
-        <label>
-          Template
-          <select
-            value={templateId}
-            onChange={(e) => setTemplateId(e.target.value as TemplateId)}
-          >
-            {templateCatalog.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p>{templateCatalog.find((t) => t.id === templateId)?.description}</p>
-        <button
-          onClick={() => {
-            setForm(
-              createTemplate(
-                templateId,
-                "f_" + crypto.randomUUID().replaceAll("-", ""),
-              ),
-            );
-            setRevision(null);
-            setDirty(true);
-          }}
-        >
-          Create form
-        </button>
-        {list.map((x) => (
-          <button
-            key={x.id}
-            onClick={async () => {
-              try {
-                const r = await api("read?id=" + x.id);
-                setForm(r.value.current);
-                setRevision(r.revision);
-              } catch {
-                setMessage("Could not open form");
-              }
-            }}
-          >
-            {x.data.current.title}
-          </button>
-        ))}
-        {listCursor && (
-          <button
-            onClick={async () => {
-              try {
-                const result = await api(
-                  "list?cursor=" + encodeURIComponent(listCursor),
-                );
-                setList((rows) => [...rows, ...result.items]);
-                setListCursor(result.cursor);
-              } catch {
-                setMessage("Could not load more forms.");
-              }
-            }}
-          >
-            Load more forms
-          </button>
-        )}
-        <p role="status">{message}</p>
-      </div>
-    );
-  if (showSettings)
-    return (
-      <Settings
-        saveMessage={message}
-        busy={busy}
-        form={form}
-        revision={revision}
-        onChange={change}
-        onClose={() => setShowSettings(false)}
-        onSave={() => void persist()}
-        onRestored={(next, rev) => {
-          setForm(next);
-          setRevision(rev);
-          setDirty(false);
-          setPast([]);
-          setFuture([]);
-        }}
+      <FormLibrary
+        forms={list}
+        cursor={listCursor}
+        busy={busy || loading}
+        message={message}
+        onOpen={(id, entries) => void openForm(id, entries)}
+        onCreate={create}
+        onMore={() => void loadMore()}
       />
     );
-  if (showEntries)
-    return <Entries formId={form.id} onBack={() => setShowEntries(false)} />;
-  const field = form.fields.find((f) => f.id === selected);
-  const patch = (v: Partial<Field>) =>
-    change({
-      ...form,
-      fields: form.fields.map((f) => (f.id === selected ? { ...f, ...v } : f)),
-    });
   return (
-    <div className="qf-builder">
-      <header>
+    <div
+      className={
+        "qf-builder qf-advanced" + (fullscreen ? " qf-fullscreen" : "")
+      }
+    >
+      <header className="qf-pro-toolbar">
         <button
+          className="qf-back"
           disabled={busy}
-          onClick={async () => {
-            if (
-              dirty &&
-              !window.confirm(
-                "Discard unsaved changes and return to all forms?",
-              )
-            )
-              return;
-            setBusy(true);
-            try {
-              const result = await api("list");
-              setList(result.items);
-              setListCursor(result.cursor);
-              setForm(undefined);
-              setRevision(null);
-              setDirty(false);
-              setPast([]);
-              setFuture([]);
-              setMessage("");
-              setAutoPaused(false);
-            } catch {
-              setMessage("Could not load forms.");
-            } finally {
-              setBusy(false);
+          onClick={() => void allForms()}
+          aria-label="All forms"
+        >
+          ←
+        </button>
+        <span className="qf-brand">
+          QuixForms<span>ADVANCED BUILDER</span>
+        </span>
+        <div className="qf-editing-title">
+          <label htmlFor="qf-form-name">NOW EDITING</label>
+          <input
+            id="qf-form-name"
+            aria-label="Form name"
+            value={form.title}
+            maxLength={200}
+            disabled={busy}
+            onChange={(e) => change({ ...form, title: e.target.value })}
+          />
+        </div>
+        <div className="qf-toolbar-actions">
+          <button disabled={busy || !past.length} onClick={undo}>
+            Undo
+          </button>
+          <button disabled={busy || !future.length} onClick={redo}>
+            Redo
+          </button>
+          <button
+            disabled={restoring}
+            onClick={() => {
+              setView("fields");
+              setPreview(!preview);
+            }}
+          >
+            {preview && view === "fields" ? "Edit" : "Preview"}
+          </button>
+          <button onClick={() => setEmbed(true)}>Embed</button>
+          <button onClick={() => setHelp(true)}>Help</button>
+          <button
+            aria-label={fullscreen ? "Exit full screen" : "Enter full screen"}
+            onClick={() => setFullscreen(!fullscreen)}
+          >
+            ⤢
+          </button>
+          <details className="qf-more-menu">
+            <summary>More</summary>
+            <button
+              disabled={busy || dirty || !revision}
+              onClick={() => void duplicateForm()}
+            >
+              Duplicate saved form
+            </button>
+          </details>
+          <button
+            disabled={busy || view === "entries"}
+            onClick={() =>
+              void persist(form.status === "draft" ? "published" : "draft")
             }
-          }}
-        >
-          All forms
-        </button>
-        <button
-          disabled={busy || dirty || !revision}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              const result = await api("duplicate", { id: form.id, revision });
-              if (!result.ok)
-                throw new Error(
-                  "Could not duplicate. Reopen the saved form and try again.",
-                );
-              const copy = await api("read?id=" + result.id);
-              setForm(copy.value.current);
-              setRevision(copy.revision);
-              setDirty(false);
-              setPast([]);
-              setFuture([]);
-              setSelected("");
-              setMessage(
-                "Draft copy created. Entries remain on the original form.",
-              );
-            } catch (error) {
-              setMessage(
-                error instanceof Error ? error.message : "Could not duplicate.",
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          Duplicate saved form
-        </button>
-        <input
-          aria-label="Form name"
-          value={form.title}
-          disabled={busy}
-          onChange={(e) => change({ ...form, title: e.target.value })}
-        />
-        <span>{dirty ? "Unsaved changes" : "Saved"}</span>
-        <button
-          disabled={busy || !past.length}
-          onClick={() => {
-            setFuture([form, ...future]);
-            setForm(past.at(-1));
-            setPast(past.slice(0, -1));
-            setDirty(true);
-          }}
-        >
-          Undo
-        </button>
-        <button
-          disabled={busy || !future.length}
-          onClick={() => {
-            setPast([...past, form]);
-            setForm(future[0]);
-            setFuture(future.slice(1));
-            setDirty(true);
-          }}
-        >
-          Redo
-        </button>
-        <button disabled={dirty || busy} onClick={() => setShowEntries(true)}>
-          Entries
-        </button>
-        <button onClick={() => setShowSettings(true)}>Settings</button>
-        <button onClick={() => setPreview(!preview)}>
-          {preview ? "Edit" : "Preview"}
-        </button>
-        <button onClick={() => setMobile(!mobile)}>
-          {mobile ? "Desktop" : "Mobile"}
-        </button>
-        <button
-          disabled={busy}
-          onClick={() =>
-            change({
-              ...form,
-              status: form.status === "draft" ? "published" : "draft",
-            })
-          }
-        >
-          {form.status === "draft" ? "Mark published" : "Mark draft"}
-        </button>
-        <button disabled={busy} onClick={persist}>
-          {busy ? "Saving…" : "Save " + form.status}
-        </button>
+          >
+            {form.status === "draft" ? "Publish" : "Unpublish"}
+          </button>
+          <button
+            className="qf-primary"
+            disabled={busy || view === "entries"}
+            onClick={() => void persist()}
+          >
+            {restoring
+              ? "Restoring…"
+              : busy
+                ? "Saving…"
+              : view === "settings"
+                ? "Save settings"
+                : "Save " + form.status}
+          </button>
+        </div>
       </header>
-      <p role="status">{message}</p>
+      <div className="qf-workspace-status">
+        <span className="qf-status-badge">{form.status}</span>
+        <span>
+          {restoring ? "Restoring…" : busy ? "Saving…" : dirty ? "Unsaved changes" : "All changes saved"}
+        </span>
+        <p role={view === "entries" ? undefined : "status"}>{message}</p>
+      </div>
       {autoPaused && (
-        <p>
+        <div className="qf-editor-alert">
           Autosave paused. Your edits are still here. Resolve the error, then
           choose Save to retry.
-        </p>
+        </div>
       )}
-      <div className="qf-panels">
-        <aside>
-          <h2>Fields</h2>
-          <input
-            aria-label="Search fields"
-            placeholder="Search fields"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {fieldTypes
-            .filter((t) => t.includes(search.toLowerCase()))
-            .map((t) => (
-              <button
-                key={t}
-                disabled={busy}
-                draggable
-                onDragStart={(e) =>
-                  e.dataTransfer.setData("text/plain", "new:" + t)
-                }
-                onClick={() =>
-                  change({
-                    ...form,
-                    fields: [
-                      ...form.fields,
-                      registry[t].create(
-                        "f_" + crypto.randomUUID().replaceAll("-", ""),
-                      ),
-                    ],
-                  })
-                }
-              >
-                {t}
-              </button>
-            ))}
-        </aside>
-        <main style={{ maxWidth: mobile ? 390 : 800 }}>
-          {preview ? (
-            <FormView key={form.id} form={form} />
-          ) : (
-            <>
-              <h2>{form.title}</h2>
-              {!form.fields.length && (
-                <p>Add your first field from the library.</p>
-              )}
-              {form.fields.map((f, i) => (
-                <article
-                  key={f.id}
-                  draggable
-                  onDragStart={(e) =>
-                    e.dataTransfer.setData("text/plain", "move:" + i)
-                  }
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const [kind, value] = e.dataTransfer
-                      .getData("text/plain")
-                      .split(":");
-                    if (
-                      kind === "move" &&
-                      /^\d+$/.test(value) &&
-                      Number(value) < form.fields.length
-                    )
-                      move(Number(value), i);
-                    if (
-                      kind === "new" &&
-                      fieldTypes.includes(value as (typeof fieldTypes)[number])
-                    ) {
-                      const fields = [...form.fields];
-                      fields.splice(
-                        i,
-                        0,
-                        registry[value as (typeof fieldTypes)[number]].create(
-                          "f_" + crypto.randomUUID().replaceAll("-", ""),
-                        ),
-                      );
-                      change({ ...form, fields });
-                    }
-                  }}
-                >
-                  <button
-                    className="qf-select"
-                    onClick={() => setSelected(f.id)}
-                  >
-                    {f.label}
-                    {f.required ? " *" : ""}
-                    <small>{f.type}</small>
-                  </button>
-                  <button
-                    aria-label={"Move " + f.label + " up"}
-                    disabled={i === 0}
-                    onClick={() => move(i, i - 1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    aria-label={"Move " + f.label + " down"}
-                    disabled={i === form.fields.length - 1}
-                    onClick={() => move(i, i + 1)}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    onClick={() =>
-                      change({
-                        ...form,
-                        fields: [
-                          ...form.fields.slice(0, i + 1),
-                          {
-                            ...f,
-                            id: "f_" + crypto.randomUUID().replaceAll("-", ""),
-                          },
-                          ...form.fields.slice(i + 1),
-                        ],
-                      })
-                    }
-                  >
-                    Duplicate
-                  </button>
-                  <button
-                    onClick={() =>
-                      change({
-                        ...form,
-                        fields: form.fields.filter((x) => x.id !== f.id),
-                      })
-                    }
-                  >
-                    Delete
-                  </button>
-                </article>
-              ))}
-            </>
+      {form.status === "published" && (
+        <div className="qf-published-note">
+          Published form: saved changes update the live form immediately.
+        </div>
+      )}
+      <div className="qf-pro-layout">
+        <nav className="qf-stage-nav" aria-label="Form workspace">
+          <button
+            aria-current={view === "fields" ? "page" : undefined}
+            disabled={restoring}
+            onClick={() => {
+              setView("fields");
+              setPreview(false);
+            }}
+          >
+            <span aria-hidden="true">▤</span>Fields
+          </button>
+          <button
+            aria-current={view === "settings" ? "page" : undefined}
+            disabled={restoring}
+            onClick={() => setView("settings")}
+          >
+            <span aria-hidden="true">⚙</span>Settings
+          </button>
+          <button
+            aria-current={view === "entries" ? "page" : undefined}
+            disabled={dirty || busy || !revision}
+            onClick={() => setView("entries")}
+          >
+            <span aria-hidden="true">▣</span>Entries
+          </button>
+        </nav>
+        <div className="qf-stage-content">
+          {view === "fields" && (
+            <FieldWorkspace
+              key={form.id}
+              form={form}
+              selected={selected}
+              onSelect={setSelected}
+              preview={preview}
+              busy={busy}
+              onChange={change}
+              onAdd={addField}
+              onMove={move}
+              onDuplicate={duplicateField}
+              onDelete={deleteField}
+            />
           )}
-        </main>
-        <aside>
-          <h2>Field options</h2>
-          {field ? (
-            <>
-              <label>
-                Label
-                <input
-                  value={field.label}
-                  onChange={(e) => patch({ label: e.target.value })}
-                />
-              </label>
-              <label>
-                Description
-                <textarea
-                  value={field.description}
-                  onChange={(e) => patch({ description: e.target.value })}
-                />
-              </label>
-              <label>
-                Placeholder
-                <input
-                  value={field.placeholder}
-                  onChange={(e) => patch({ placeholder: e.target.value })}
-                />
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={field.required}
-                  onChange={(e) => patch({ required: e.target.checked })}
-                />
-                Required
-              </label>
-              {["select", "radio", "checkboxes"].includes(field.type) && (
-                <label>
-                  Choices, one per line
-                  <textarea
-                    value={field.options.join("\n")}
-                    onChange={(e) =>
-                      patch({ options: e.target.value.split("\n") })
-                    }
-                  />
-                </label>
-              )}
-              <label>
-                Width
-                <select
-                  value={field.width}
-                  onChange={(e) =>
-                    patch({ width: e.target.value as Field["width"] })
-                  }
-                >
-                  <option>full</option>
-                  <option>half</option>
-                  <option>third</option>
-                </select>
-              </label>
-              <h3>Show this field when</h3>
-              <Logic
-                rule={field.showWhen}
-                fields={form.fields.filter((f) => f.id !== field.id)}
-                onChange={(r) => patch({ showWhen: r })}
-              />
-              <h3>Require this field when</h3>
-              <Logic
-                rule={field.requiredWhen}
-                fields={form.fields.filter((f) => f.id !== field.id)}
-                onChange={(r) => patch({ requiredWhen: r })}
-              />
-            </>
-          ) : (
-            <p>Select a field to configure it.</p>
+          {view === "settings" && (
+            <Settings
+              form={form}
+              revision={revision}
+              busy={busy}
+              onChange={change}
+              onClose={() => setView("fields")}
+              onRestored={(next, rev) => resetEditor(next, rev)}
+              onRestoringChange={setRestoring}
+            />
           )}
-        </aside>
+          {view === "entries" && (
+            <Entries
+              embedded
+              formId={form.id}
+              onBack={() => setView("fields")}
+            />
+          )}
+        </div>
       </div>
+      {embed && (
+        <EmbedDialog
+          form={form}
+          dirty={dirty}
+          busy={busy}
+          onPublish={() => persist("published")}
+          onClose={() => setEmbed(false)}
+        />
+      )}
+      {help && (
+        <Modal title="Builder help" onClose={() => setHelp(false)}>
+          <h3>Build your form</h3>
+          <p>
+            Add a field from the library, select it on the canvas, then edit its
+            General, Advanced or Smart Logic options. Drag fields to reorder
+            them, or use their move buttons.
+          </p>
+          <h3>Save and publish</h3>
+          <p>
+            Drafts autosave after valid changes. Published forms update only
+            when you save. Publishing saves the current definition and makes it
+            available to your public renderer.
+          </p>
+          <h3>Keyboard shortcuts</h3>
+          <dl>
+            <dt>Ctrl / ⌘ + S</dt>
+            <dd>Save the form</dd>
+            <dt>Ctrl / ⌘ + Z</dt>
+            <dd>Undo a builder change outside text inputs</dd>
+            <dt>Ctrl / ⌘ + Shift + Z</dt>
+            <dd>Redo a builder change</dd>
+            <dt>Escape</dt>
+            <dd>Close a dialog or leave full screen</dd>
+          </dl>
+          <p>Use Embed for the Astro component and launch checklist.</p>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -3,6 +3,20 @@ import { validateBlocks } from "@emdash-cms/blocks/server";
 import type { PluginContext, SandboxedRouteContext } from "emdash/plugin";
 import { admin } from "../packages/sandboxed/src/ui";
 import { template, registry } from "../packages/core/src/index";
+import type { Block, BlockResponse, FormBlock } from "@emdash-cms/blocks";
+function nestedForms(blocks: Block[]): FormBlock[] {
+  return blocks.flatMap((block) =>
+    block.type === "form"
+      ? [block]
+      : block.type === "columns"
+        ? block.columns.flatMap(nestedForms)
+        : block.type === "tab"
+          ? block.panels.flatMap((panel) => nestedForms(panel.blocks))
+          : block.type === "accordion"
+            ? nestedForms(block.blocks)
+            : [],
+  );
+}
 it("validates overview and bounded 100-field editor with official Block Kit validator", async () => {
   const form = template("large");
   form.fields = Array.from({ length: 100 }, (_, i) =>
@@ -83,7 +97,7 @@ it("gives Block Kit forms stable identity and refreshes state only when their sa
         input: { type: "block_action", action_id: "open:identity" },
       } as SandboxedRouteContext,
       ctx,
-    )) as { blocks: Array<{ type: string; block_id?: string }> };
+    )) as BlockResponse;
   const original = await render();
   revision = "2";
   const unchanged = await render();
@@ -97,9 +111,13 @@ it("gives Block Kit forms stable identity and refreshes state only when their sa
     ),
   };
   const changed = await render();
-  const before = original.blocks.filter((b) => b.type === "form"),
-    after = changed.blocks.filter((b) => b.type === "form");
-  expect(after[1].block_id).not.toBe(before[1].block_id);
-  expect(after[2].block_id).toBe(before[2].block_id);
+  const before = nestedForms(original.blocks),
+    after = nestedForms(changed.blocks);
+  const selectedForm = (rows: FormBlock[]) =>
+    rows.find((block) => block.block_id?.startsWith("field:identity:name:"))!;
+  const addForm = (rows: FormBlock[]) =>
+    rows.find((block) => block.block_id?.startsWith("add-field:identity:"))!;
+  expect(selectedForm(after).block_id).not.toBe(selectedForm(before).block_id);
+  expect(addForm(after).block_id).toBe(addForm(before).block_id);
   expect(new Set(after.map((b) => b.block_id)).size).toBe(after.length);
 });

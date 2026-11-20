@@ -1,8 +1,10 @@
-import { z } from "zod";
+import * as z from "./schema";
 export const idSchema = z
   .string()
-  .regex(/^[a-z][a-z0-9_]{0,63}$/)
-  .refine((s) => !["__proto__", "constructor", "prototype"].includes(s));
+  .check(z.regex(/^[a-z][a-z0-9_]{0,63}$/))
+  .check(
+    z.refine((s) => !["__proto__", "constructor", "prototype"].includes(s)),
+  );
 export const fieldTypes = [
   "text",
   "paragraph",
@@ -22,7 +24,10 @@ export const fieldTypes = [
 ] as const;
 export type Values = Record<string, string | number | boolean | string[]>;
 export type Rule =
-  | { op: "and" | "or"; rules: Rule[] }
+  | {
+      op: "and" | "or";
+      rules: Rule[];
+    }
   | {
       field: string;
       op:
@@ -40,84 +45,83 @@ export type Rule =
         | "notSelected";
       value?: string | number | boolean;
     };
-const rule: z.ZodType<Rule> = z.lazy(() =>
+const rule: z.ZodMiniType<Rule> = z.lazy(() =>
   z.union([
-    z
-      .object({
-        op: z.enum(["and", "or"]),
-        rules: z.array(rule).min(1).max(10),
-      })
-      .strict(),
-    z
-      .object({
-        field: idSchema,
-        op: z.enum([
-          "eq",
-          "ne",
-          "contains",
-          "notContains",
-          "gt",
-          "lt",
-          "empty",
-          "notEmpty",
-          "startsWith",
-          "endsWith",
-          "selected",
-          "notSelected",
-        ]),
-        value: z
-          .union([z.string().max(500), z.number().finite(), z.boolean()])
-          .optional(),
-      })
-      .strict(),
+    z.strictObject({
+      op: z.enum(["and", "or"]),
+      rules: z.array(rule).check(z.minLength(1)).check(z.maxLength(10)),
+    }),
+    z.strictObject({
+      field: idSchema,
+      op: z.enum([
+        "eq",
+        "ne",
+        "contains",
+        "notContains",
+        "gt",
+        "lt",
+        "empty",
+        "notEmpty",
+        "startsWith",
+        "endsWith",
+        "selected",
+        "notSelected",
+      ]),
+      value: z.optional(
+        z.union([z.string().check(z.maxLength(500)), z.number(), z.boolean()]),
+      ),
+    }),
   ]),
 );
-export const fieldSchema = z
-  .object({
-    id: idSchema,
-    type: z.enum(fieldTypes),
-    label: z.string().min(1).max(200),
-    description: z.string().max(1000).default(""),
-    placeholder: z.string().max(200).default(""),
-    required: z.boolean().default(false),
-    options: z.array(z.string().min(1).max(200)).max(100).default([]),
-    width: z.enum(["full", "half", "third"]).default("full"),
-    showWhen: rule.optional(),
-    requiredWhen: rule.optional(),
-    min: z.number().finite().optional(),
-    max: z.number().finite().optional(),
-  })
-  .strict();
-export const formSchema = z
-  .object({
-    schemaVersion: z.literal(1),
-    id: idSchema,
-    title: z.string().min(1).max(200),
-    status: z.enum(["draft", "published"]),
-    fields: z.array(fieldSchema).max(100),
-    confirmation: z.string().min(1).max(1000),
-    notifications: z
+export const fieldSchema = z.strictObject({
+  id: idSchema,
+  type: z.enum(fieldTypes),
+  label: z.string().check(z.minLength(1)).check(z.maxLength(200)),
+  description: z._default(z.string().check(z.maxLength(1000)), ""),
+  placeholder: z._default(z.string().check(z.maxLength(200)), ""),
+  required: z._default(z.boolean(), false),
+  options: z._default(
+    z
+      .array(z.string().check(z.minLength(1)).check(z.maxLength(200)))
+      .check(z.maxLength(100)),
+    [],
+  ),
+  width: z._default(z.enum(["full", "half", "third"]), "full"),
+  showWhen: z.optional(rule),
+  requiredWhen: z.optional(rule),
+  min: z.optional(z.number()),
+  max: z.optional(z.number()),
+});
+export const formSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  id: idSchema,
+  title: z.string().check(z.minLength(1)).check(z.maxLength(200)),
+  status: z.enum(["draft", "published"]),
+  fields: z.array(fieldSchema).check(z.maxLength(100)),
+  confirmation: z.string().check(z.minLength(1)).check(z.maxLength(1000)),
+  notifications: z._default(
+    z
       .array(
-        z
-          .object({
-            to: z.email(),
-            enabled: z.boolean().optional(),
-            subject: z
-              .string()
-              .min(1)
-              .max(200)
-              .refine((s) => !/[\r\n]/.test(s)),
-            when: rule.optional(),
-          })
-          .strict(),
+        z.strictObject({
+          to: z.email(),
+          enabled: z.optional(z.boolean()),
+          subject: z
+            .string()
+            .check(z.minLength(1))
+            .check(z.maxLength(200))
+            .check(z.refine((s) => !/[\r\n]/.test(s))),
+          body: z.optional(z.string().check(z.maxLength(10000))),
+          when: z.optional(rule),
+        }),
       )
-      .max(5)
-      .default([]),
-    appearance: z
-      .enum(["minimal", "modern", "classic", "boxed"])
-      .default("modern"),
-  })
-  .strict();
+      .check(z.maxLength(5)),
+    [],
+  ),
+  appearance: z._default(
+    z.enum(["minimal", "modern", "classic", "boxed"]),
+    "modern",
+  ),
+});
 export type Form = z.infer<typeof formSchema>;
 export type Field = Form["fields"][number];
 export function dependencies(r?: Rule): string[] {
@@ -279,10 +283,10 @@ export function validate(form: Form, input: unknown) {
     .record(
       z.string(),
       z.union([
-        z.string().max(10000),
-        z.number().finite(),
+        z.string().check(z.maxLength(10000)),
+        z.number(),
         z.boolean(),
-        z.array(z.string().max(200)).max(100),
+        z.array(z.string().check(z.maxLength(200))).check(z.maxLength(100)),
       ]),
     )
     .safeParse(input);
@@ -365,7 +369,10 @@ export const registry = Object.fromEntries(
   ]),
 ) as Record<
   (typeof fieldTypes)[number],
-  { type: string; create: (id: string) => Field }
+  {
+    type: string;
+    create: (id: string) => Field;
+  }
 >;
 export function template(id: string, title = "Contact us"): Form {
   return parseForm({

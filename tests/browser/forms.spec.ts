@@ -1,5 +1,56 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+async function chooseTemplate(page: Page, name = "Simple Contact Form") {
+  await page.getByRole("button", { name: "Add New", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Use template " + name, exact: true })
+    .click();
+}
 import { template } from "../../packages/core/src/index";
+test("forms submit without loading CAPTCHA when the server reports it is off", async ({
+  page,
+}) => {
+  let captchaRequests = 0;
+  await page.route("https://challenges.cloudflare.com/**", (r) => {
+    captchaRequests++;
+    return r.abort();
+  });
+  await page.route("**/definition?*", (r) => {
+    const id = new URL(r.request().url()).searchParams.get("id")!;
+    return r.fulfill({
+      json: {
+        success: true,
+        data: {
+          ok: true,
+          form: template(id),
+          captchaRequired: false,
+          siteKey: "",
+        },
+      },
+    });
+  });
+  let submitted: Record<string, unknown> | undefined;
+  await page.route("**/quixforms/submit", (r) => {
+    submitted = r.request().postDataJSON();
+    return r.fulfill({
+      json: {
+        success: true,
+        data: { ok: true, message: "Accepted without CAPTCHA" },
+      },
+    });
+  });
+  await page.goto("/forms");
+  const form = page.locator("form").first();
+  await form.getByRole("button", { name: "Submit", exact: true }).click();
+  await expect(form.getByText("This field is required").first()).toBeVisible();
+  expect(submitted).toBeUndefined();
+  await form.getByLabel("Your name").fill("Synthetic Visitor");
+  await form.getByLabel("Email address").fill("synthetic@example.com");
+  await form.getByLabel("How can we help?").fill("No CAPTCHA configured");
+  await form.getByRole("button", { name: "Submit", exact: true }).click();
+  await expect(form.getByText("Accepted without CAPTCHA")).toBeVisible();
+  expect(submitted).toMatchObject({ token: "", id: "contact" });
+  expect(captchaRequests).toBe(0);
+});
 test("multiple forms isolate CAPTCHA and retain retry identity after a lost response", async ({
   page,
 }) => {
@@ -53,7 +104,7 @@ test("multiple forms isolate CAPTCHA and retain retry identity after a lost resp
 });
 test("builder edits, reorders with keyboard controls, previews and saves through Core API", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.route("**/quixforms/list", (r) =>
     r.fulfill({ json: { success: true, data: { items: [] } } }),
   );
@@ -66,7 +117,7 @@ test("builder edits, reorders with keyboard controls, previews and saves through
     });
   });
   await page.goto("/builder");
-  await page.getByRole("button", { name: "Create form" }).click();
+  await chooseTemplate(page);
   await page.getByRole("button", { name: "Move Your name down" }).click();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await page.locator(".qf-select").first().click();
@@ -79,15 +130,91 @@ test("builder edits, reorders with keyboard controls, previews and saves through
     },
   });
   await page.screenshot({
-    path: "docs/screenshots/builder.png",
+    path: testInfo.outputPath("builder.png"),
     fullPage: true,
   });
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(page.getByLabel("Full name")).toBeVisible();
 });
+test("field sidebar edits survive switching sections and adding fields to a blank canvas", async ({
+  page,
+}) => {
+  await page.route("**/quixforms/list", (r) =>
+    r.fulfill({ json: { success: true, data: { items: [] } } }),
+  );
+  const saves: any[] = [];
+  await page.route("**/quixforms/save", (r) => {
+    saves.push(r.request().postDataJSON());
+    return r.fulfill({
+      json: {
+        success: true,
+        data: { ok: true, revision: String(saves.length) },
+      },
+    });
+  });
+  await page.goto("/builder");
+  await chooseTemplate(page, "Blank form");
+  await page
+    .getByRole("button", { name: "Dropdown", exact: true })
+    .dragTo(page.locator("main"));
+  await page.getByText("Bulk edit choices", { exact: true }).click();
+  await page.getByLabel("Choices, one per line").fill("Sales\nSupport");
+  await page.getByRole("button", { name: "Advanced", exact: true }).click();
+  await page.getByLabel("Placeholder", { exact: true }).fill("Choose a team");
+  await page.getByLabel("Width", { exact: true }).selectOption("half");
+  await page.getByRole("button", { name: "Add Fields", exact: true }).click();
+  await page.getByLabel("Search fields").fill("single line");
+  await page
+    .getByRole("button", { name: "Single Line Text", exact: true })
+    .click();
+  await page.getByLabel("Label", { exact: true }).fill("Topic");
+  await page.locator(".qf-select").first().click();
+  await page.getByRole("button", { name: "Smart Logic", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Add condition group" })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "General", exact: true }).click();
+  await expect(page.getByLabel("Choices, one per line")).toHaveValue(
+    "Sales\nSupport",
+  );
+  await page.getByRole("button", { name: "Save draft", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  expect(saves.at(-1).form.fields).toMatchObject([
+    {
+      type: "select",
+      options: ["Sales", "Support"],
+      placeholder: "Choose a team",
+      width: "half",
+      showWhen: { op: "and" },
+    },
+    { type: "text", label: "Topic" },
+  ]);
+  await page.getByRole("button", { name: "Add Fields", exact: true }).click();
+  await page.getByLabel("Search fields").fill("number");
+  await page.getByRole("button", { name: "Numbers", exact: true }).click();
+  await page.getByRole("button", { name: "Advanced", exact: true }).click();
+  await page
+    .getByLabel("Minimum value (optional)", { exact: true })
+    .fill("1.5");
+  await page.getByLabel("Maximum value (optional)", { exact: true }).fill("10");
+  await page.getByRole("button", { name: "Save draft", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  expect(saves.at(-1).form.fields[2]).toMatchObject({
+    type: "number",
+    min: 1.5,
+    max: 10,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(390);
+});
 test("drag and drop changes field order and autosave preserves edits made during a save", async ({
   page,
 }) => {
+  // Keep both cards visible for the native browser drag gesture.
+  await page.setViewportSize({ width: 1280, height: 1100 });
   await page.route("**/quixforms/list", (r) =>
     r.fulfill({ json: { success: true, data: { items: [] } } }),
   );
@@ -107,7 +234,7 @@ test("drag and drop changes field order and autosave preserves edits made during
     });
   });
   await page.goto("/builder");
-  await page.getByRole("button", { name: "Create form", exact: true }).click();
+  await chooseTemplate(page);
   await expect.poll(() => saved.length).toBe(1);
   await page
     .locator("main article")
@@ -269,11 +396,18 @@ test("settings save notifications and appearance without losing nested field rul
   await page.getByRole("button", { name: "Contact us", exact: true }).click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page
+    .getByRole("button", { name: "Confirmations", exact: true })
+    .click();
+  await page
     .getByLabel("Confirmation message")
     .fill("Your request is recorded.");
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Appearance", exact: true })
     .selectOption("boxed");
+  await page
+    .getByRole("button", { name: "Notifications", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Add notification", exact: true })
     .click();
@@ -281,6 +415,11 @@ test("settings save notifications and appearance without losing nested field rul
     .getByLabel("Recipient", { exact: true })
     .fill("support@example.com");
   await page.getByLabel("Enabled", { exact: true }).check();
+  await page
+    .getByLabel("Message body", { exact: true })
+    .fill(
+      "New request for {form_title}\n\n{all_fields}\nReference: {entry_reference}",
+    );
   await page
     .getByRole("button", { name: "Add condition group", exact: true })
     .click();
@@ -299,7 +438,11 @@ test("settings save notifications and appearance without losing nested field rul
   expect(current.appearance).toBe("boxed");
   expect(current.confirmation).toBe("Your request is recorded.");
   expect(current.notifications).toMatchObject([
-    { to: "support@example.com", enabled: true },
+    {
+      to: "support@example.com",
+      enabled: true,
+      body: "New request for {form_title}\n\n{all_fields}\nReference: {entry_reference}",
+    },
   ]);
   expect(current.fields[2].showWhen).toEqual(form.fields[2].showWhen);
   expect(current.notifications[0].when).toEqual({
@@ -410,14 +553,50 @@ test("export all follows cursors and aligns fields from historical submission sc
   expect(content.split("\r\n")).toHaveLength(3);
   await expect(page.getByRole("status")).toContainText("Exported 2 entries");
 });
-test('public controls and builder pass automated WCAG A/AA checks',async({page})=>{
- const {default:AxeBuilder}=await import('@axe-core/playwright');
- const {registry,fieldTypes}=await import('../../packages/core/src/index');
- const form=template('accessible');form.fields=fieldTypes.filter(t=>t!=='page').map(t=>registry[t].create('field_'+t));
- await page.route('https://challenges.cloudflare.com/**',r=>r.fulfill({contentType:'application/javascript',body:`window.turnstile={render(el,options){options.callback('test');return '1'},remove(){},reset(){}};`}));
- await page.route('**/quixforms/definition?*',r=>r.fulfill({json:{success:true,data:{ok:true,form,siteKey:'test'}}}));
- await page.goto('/forms');await page.getByRole('button',{name:'Submit',exact:true}).first().waitFor();
- const publicResult=await new AxeBuilder({page}).include('.quixforms').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();expect(publicResult.violations).toEqual([]);
- await page.route('**/quixforms/list',r=>r.fulfill({json:{success:true,data:{items:[]}}}));await page.route('**/quixforms/save',r=>r.fulfill({json:{success:true,data:{ok:true,revision:'1'}}}));
- await page.goto('/builder');await page.getByRole('button',{name:'Create form',exact:true}).click();await page.locator('.qf-select').first().click();const builderResult=await new AxeBuilder({page}).include('.qf-builder').withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();expect(builderResult.violations).toEqual([]);
+test("public controls and builder pass automated WCAG A/AA checks", async ({
+  page,
+}) => {
+  const { default: AxeBuilder } = await import("@axe-core/playwright");
+  const { registry, fieldTypes } = await import(
+    "../../packages/core/src/index"
+  );
+  const form = template("accessible");
+  form.fields = fieldTypes
+    .filter((t) => t !== "page")
+    .map((t) => registry[t].create("field_" + t));
+  await page.route("https://challenges.cloudflare.com/**", (r) =>
+    r.fulfill({
+      contentType: "application/javascript",
+      body: `window.turnstile={render(el,options){options.callback('test');return '1'},remove(){},reset(){}};`,
+    }),
+  );
+  await page.route("**/quixforms/definition?*", (r) =>
+    r.fulfill({
+      json: { success: true, data: { ok: true, form, siteKey: "test" } },
+    }),
+  );
+  await page.goto("/forms");
+  await page
+    .getByRole("button", { name: "Submit", exact: true })
+    .first()
+    .waitFor();
+  const publicResult = await new AxeBuilder({ page })
+    .include(".quixforms")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(publicResult.violations).toEqual([]);
+  await page.route("**/quixforms/list", (r) =>
+    r.fulfill({ json: { success: true, data: { items: [] } } }),
+  );
+  await page.route("**/quixforms/save", (r) =>
+    r.fulfill({ json: { success: true, data: { ok: true, revision: "1" } } }),
+  );
+  await page.goto("/builder");
+  await chooseTemplate(page);
+  await page.locator(".qf-select").first().click();
+  const builderResult = await new AxeBuilder({ page })
+    .include(".qf-builder")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(builderResult.violations).toEqual([]);
 });

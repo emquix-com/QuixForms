@@ -13,5 +13,6 @@ test-results/
 artifacts/
 
 .quixforms/
+.local/
 examples/node-test-site/*.db*
 examples/node-test-site/uploads/

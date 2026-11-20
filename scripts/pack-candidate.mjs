@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { resolve } from "node:path";
+import { resolve, dirname, join } from "node:path";
+const npmCli = process.env.npm_execpath ?? join(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js");
 const target = resolve("artifacts");
 mkdirSync(target, { recursive: true });
 const files = [];
@@ -13,7 +14,7 @@ for (const name of [
   "installer",
 ]) {
   const result = JSON.parse(
-    execFileSync("npm", ["pack", "--json", "--pack-destination", target], {
+    execFileSync(process.execPath, [npmCli, "pack", "--json", "--pack-destination", target], {
       cwd: "packages/" + name,
       encoding: "utf8",
     }),

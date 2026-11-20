@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "@emquix/quixforms-engine/schema";
 import type { PluginContext } from "emdash/plugin";
 import type { StorageCollection } from "emdash";
 import { idSchema, type Form, type Values } from "@emquix/quixforms-engine";
@@ -8,21 +8,21 @@ export const entries = (c: PluginContext) =>
   c.storage.entries as StorageCollection<Entry>;
 export const entryKey = z
   .string()
-  .regex(/^[a-z][a-z0-9_]{0,63}_[0-9a-f-]{36}$/)
-  .max(101);
-export const entryQuery = z
-  .object({
-    id: idSchema,
-    cursor: z.string().max(2000).optional(),
-    status: z.enum(["all", "inbox", "spam", "trash"]).default("all"),
-    starred: z.enum(["all", "yes"]).default("all"),
-    reference: z
+  .check(z.regex(/^[a-z][a-z0-9_]{0,63}_[0-9a-f-]{36}$/))
+  .check(z.maxLength(101));
+export const entryQuery = z.strictObject({
+  id: idSchema,
+  cursor: z.optional(z.string().check(z.maxLength(2000))),
+  status: z._default(z.enum(["all", "inbox", "spam", "trash"]), "all"),
+  starred: z._default(z.enum(["all", "yes"]), "all"),
+  reference: z._default(
+    z
       .string()
-      .max(101)
-      .regex(/^[a-z0-9_-]*$/)
-      .default(""),
-  })
-  .strict();
+      .check(z.maxLength(101))
+      .check(z.regex(/^[a-z0-9_-]*$/)),
+    "",
+  ),
+});
 export async function listEntries(
   c: PluginContext,
   input: unknown,
@@ -41,29 +41,33 @@ export async function listEntries(
     cursor: q.cursor,
   });
 }
-export const entryRead = z.object({ id: idSchema, key: entryKey }).strict();
+export const entryRead = z.strictObject({ id: idSchema, key: entryKey });
 export async function readEntry(c: PluginContext, input: unknown) {
   const q = entryRead.parse(input),
     row = await entries(c).getVersioned(q.key);
   return row?.value.formId === q.id ? row : null;
 }
 export const entryUpdate = z
-  .object({
+  .strictObject({
     id: idSchema,
     key: entryKey,
-    revision: z.string().min(1).max(128),
-    patch: z
-      .object({
-        status: z.enum(["inbox", "spam", "trash"]).optional(),
-        read: z.boolean().optional(),
-        starred: z.boolean().optional(),
-      })
-      .strict()
-      .optional(),
-    note: z.string().trim().min(1).max(2000).optional(),
+    revision: z.string().check(z.minLength(1)).check(z.maxLength(128)),
+    patch: z.optional(
+      z.strictObject({
+        status: z.optional(z.enum(["inbox", "spam", "trash"])),
+        read: z.optional(z.boolean()),
+        starred: z.optional(z.boolean()),
+      }),
+    ),
+    note: z.optional(
+      z.string().check(z.trim()).check(z.minLength(1)).check(z.maxLength(2000)),
+    ),
   })
-  .strict()
-  .refine((q) => q.note !== undefined || Object.keys(q.patch ?? {}).length > 0);
+  .check(
+    z.refine(
+      (q) => q.note !== undefined || Object.keys(q.patch ?? {}).length > 0,
+    ),
+  );
 export async function updateEntry(
   c: PluginContext,
   input: unknown,
@@ -103,9 +107,12 @@ export async function updateEntry(
 }
 export { entriesCsv } from "@emquix/quixforms-engine/submissions";
 export async function eraseEntry(c: PluginContext, input: unknown) {
-  const q = entryRead
-      .extend({ revision: z.string().min(1).max(128) })
-      .strict()
+  const q = z
+      .strictObject(
+        z.extend(entryRead, {
+          revision: z.string().check(z.minLength(1)).check(z.maxLength(128)),
+        }).shape,
+      )
       .parse(input),
     row = await readEntry(c, { id: q.id, key: q.key });
   if (!row) return { ok: false, error: "NOT_FOUND" };

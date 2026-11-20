@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
-  "author": "Webtaculos",
+  "author": {
+    "name": "EmQuix",
+    "url": "https://emquix.com"
+  },
   "private": true,
   "exports": {
     ".": "./src/index.tsx",
@@ -18,7 +21,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/alexandru-b/QuixForms.git",
+    "url": "git+https://github.com/emquix-com/QuixForms.git",
     "directory": "packages/astro"
   },
   "dependencies": {

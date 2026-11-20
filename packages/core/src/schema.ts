@@ -1,0 +1,32 @@
+// Bundle the small functional validator once for the sandbox compiler, whose
+// pinned dependency inliner recognizes package roots but not zod/mini imports.
+export {
+  string,
+  number,
+  boolean,
+  unknown,
+  literal,
+  array,
+  record,
+  object,
+  strictObject,
+  looseObject,
+  extend,
+  union,
+  lazy,
+  optional,
+  nullable,
+  _default,
+  email,
+  uuid,
+  regex,
+  refine,
+  minLength,
+  maxLength,
+  minimum,
+  maximum,
+  trim,
+  coerce,
+  enum,
+} from "zod/mini";
+export type { ZodMiniType, infer } from "zod/mini";

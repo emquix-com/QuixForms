@@ -5,9 +5,11 @@ import { api } from "./api";
 export function Entries({
   formId,
   onBack,
+  embedded = false,
 }: {
   formId: string;
   onBack: () => void;
+  embedded?: boolean;
 }) {
   const [rows, setRows] = useState<Array<{ id: string; data: Entry }>>([]),
     [cursor, setCursor] = useState<string>(),
@@ -148,7 +150,7 @@ export function Entries({
     }
   }
   return (
-    <div className="qf-builder">
+    <div className={embedded ? "qf-entries-view" : "qf-builder"}>
       <header>
         <h1>Submissions</h1>
         <button disabled={busy} onClick={onBack}>

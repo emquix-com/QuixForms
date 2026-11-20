@@ -1,11 +1,22 @@
 {
   "slug": "quixforms",
-  "publisher": "webtaculos.com",
+  "publisher": "did:plc:6clqzka76ueshbureaecbrfj",
+  "name": "QuixForms",
   "license": "MIT",
   "author": {
-    "name": "Webtaculos",
+    "name": "EmQuix",
+    "url": "https://emquix.com",
   },
   "description": "Powerful Forms. Effortless Building.",
+  "repo": "https://github.com/emquix-com/QuixForms",
+  "keywords": ["forms", "contact", "notifications", "conditional-logic"],
+  "sections": {
+    "description": { "file": "./docs/registry/description.md" },
+    "installation": { "file": "./docs/registry/installation.md" },
+    "faq": { "file": "./docs/registry/faq.md" },
+    "changelog": { "file": "./docs/registry/changelog.md" },
+    "security": { "file": "./docs/registry/security.md" }
+  },
   "capabilities": ["email:send", "network:request"],
   "allowedHosts": ["challenges.cloudflare.com"],
   "storage": {
@@ -36,6 +47,9 @@
     },
   },
   "security": {
-    "url": "https://github.com/alexandru-b/QuixForms/security/advisories/new",
+    "url": "https://github.com/emquix-com/QuixForms/security",
   },
+  "release": {
+    "requires": { "env:emdash": ">=1.3.1 <1.4.0" }
+  }
 }

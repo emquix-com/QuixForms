@@ -2,6 +2,10 @@
 
 ## 0.1.0 — unreleased development
 
+### 2026-11-20 release preparation
+
+Transferred public source to `emquix-com/QuixForms`. Prepared the sandboxed registry release under the verified `@emquix.com` publisher with full listing documentation. Core and Advanced remain free and MIT licensed. Added the focused sandboxed builder, Advanced workspace, optional CAPTCHA, embedded contact example, notification message templates and a Zod Mini runtime below the registry size limit. The local release gate passes 110 tests and official bundle validation; registry publication and clean registry installation remain pending.
+
 Initial shared schema and validation engine, nested conditions, revision-protected sandbox storage, paginated Block Kit editing, native React builder, shared Astro renderer, restricted submission and CSV APIs, Turnstile verification and configured EmDash email transport integration. Release acceptance is incomplete.
 
 ### Continued development

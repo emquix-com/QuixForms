@@ -22,7 +22,7 @@ try {
   const bundle = "quixforms-0.1.0.tar.gz";
   cpSync(join("artifacts", bundle), join(root, "artifacts", bundle));
   artifacts.push({
-    package: "@webtaculos.com/quixforms (registry bundle)",
+    package: "@emquix.com/quixforms (registry bundle)",
     version: "0.1.0",
     file: bundle,
     sha256: createHash("sha256")

@@ -4,7 +4,7 @@ This is an **unpublished test candidate**, not a production approval. Test with 
 
 ## Tested versions and prerequisites
 
-Node 24; EmDash 1.3.1; Astro 7.4.2; React 19.2.0; @astrojs/react 7.1.1. The Node example uses @astrojs/node 11.1.9, @emdash-cms/sandbox-workerd 0.9.5 and workerd 1.20261024.1. Use localhost for local passkeys, or HTTPS with your real hostname. Set `EMDASH_SITE_URL` to that origin. Configure EmDash's persistent encryption key according to its deployment guide before saving secret plugin settings.
+Node 24; EmDash 1.3.1; Astro 7.4.13; React 19.2.0; @astrojs/react 7.1.1. The Node example uses @astrojs/node 11.1.14, @emdash-cms/sandbox-workerd 0.9.5 and workerd 1.20261024.1, with security overrides for Sharp 0.35.5 and Miniflare's Undici 7.30.1. Use localhost for local passkeys, or HTTPS with your real hostname. Set `EMDASH_SITE_URL` to that origin. Configure EmDash's persistent encryption key according to its deployment guide before saving secret plugin settings.
 
 Cloudflare requires EmDash's official sandbox integration, Worker Loader `LOADER` binding, PluginBridge export and a compatible paid Workers plan. A deployed Cloudflare acceptance run is still outstanding; the local official Worker/D1 harness is not that deployment test.
 
@@ -28,9 +28,68 @@ npm install /absolute/path/quixforms-0.1.0-manual-test/artifacts/emquix-quixform
 npx quixforms install --artifacts /absolute/path/quixforms-0.1.0-manual-test/artifacts --core-only --dry-run
 ```
 
-Remove `--dry-run` to install; substitute `--with-core` for the full installation. These commands use the local CLI package, not an unpublished npm registry name. `npm run kit:candidate` assembles the archive from a source checkout. CI also attaches it as a private workflow artifact after checks pass.
+Remove `--dry-run` to install; substitute `--with-core` for the full installation. These commands use the local CLI package, not an unpublished npm registry name. `npm run kit:candidate` assembles the archive from a source checkout. CI also attaches it as a downloadable workflow artifact after checks pass.
 
 ## A. Sandboxed Core alone
+
+### Windows local checkout
+
+The working copy prepared on 2026-11-20 uses an isolated real EmDash site in
+`.local/site`, with Core, Advanced, SQLite and `/forms/[id]` installed. From the
+repository root, restart it with:
+
+```powershell
+npm run local:start
+```
+
+Open `http://localhost:4333/_emdash/admin/` and complete the initial EmDash
+account/passkey setup yourself. The Core and Advanced URLs are listed below.
+The startup script binds only to loopback, keeps an encryption key in the
+ignored `.local/site/.env`, and supplies the Windows executable location expected
+by the pinned EmDash workerd runner. Keep `.local/site` to retain test data and
+settings. Never commit or share its database, encryption key or session state.
+
+To reproduce this site in a fresh checkout after `npm ci`, `npm run build` and
+`npm run pack:candidate`:
+
+```powershell
+New-Item -ItemType Directory -Path .local/site -Force
+Copy-Item examples/node-test-site/* .local/site -Recurse
+Push-Location .local/site
+npm install
+Pop-Location
+node packages/installer/src/cli.mjs install --project .local/site --artifacts artifacts --with-core
+New-Item -ItemType Directory -Path .local/site/src/pages/forms -Force
+Copy-Item examples/companion-page.astro '.local/site/src/pages/forms/[id].astro'
+npm --prefix .local/site run build
+npm run local:start
+```
+
+For automated verification, install the separate harness once with
+`npm --prefix sandbox-tests ci`, then install Chromium with
+`npx playwright install chromium`. Run `npm run test:release` for the production
+package build, typecheck, unit tests, browser tests, official sandbox tests and
+registry bundle validation. The latest candidate passes all 110 tests and official
+bundle validation. Its runtime is 75.7 KiB against the 128 KiB limit. See the
+release report for the exact artifact hash and remaining deployment acceptance.
+If browsers have already been downloaded to `.local/browsers`, the browser test
+configuration uses that location automatically. Browser failures retain a trace
+and screenshot under `test-results/`. Existing GitHub Actions checks run on pushes
+and pull requests; local changes are not pushed automatically.
+
+The browser fixture mocks Core and CAPTCHA. Passing it does not establish live
+CAPTCHA/email delivery or replace authenticated manual acceptance of the real site.
+
+CAPTCHA is optional. With no complete Turnstile key pair, published forms must
+submit without a token or CAPTCHA script. Admin screens display **CAPTCHA off**.
+With both keys configured, missing tokens or failed verification must block
+acceptance; provider outages must not silently disable a configured CAPTCHA.
+Server validation, rate limits and honeypot checks remain enabled in either mode.
+Only Turnstile is currently implemented, not reCAPTCHA.
+
+The prepared local site has an embedded contact form at
+`http://localhost:4333/contact`. `examples/contact-page.astro` provides the reusable
+page: replace `your_form_id`, copy it into the site's pages directory, then rebuild.
 
 For an existing EmDash 1.3.1 site, configure its official sandbox runner first. The provided `examples/node-test-site` has a Node runner and SQLite configuration. Copy that example outside the monorepo, then run `npm install` there.
 
@@ -93,6 +152,81 @@ The CLI backs up config, package manifest and locks under `.quixforms/`, install
 To test switching a managed full installation to Core alone: stop the server, run `remove`, run `install --core-only`, then restart. Core data must remain. To remove only Advanced in a customized site, remove its native descriptor from the plugins array, keeping the sandboxed Core descriptor. There is no automated upgrade/version rollback command yet; keep backups and prior tarballs.
 
 ## Acceptance checklist — record pass/fail and evidence
+
+### Notification message bodies
+
+Core → Notifications and Advanced → Settings → Notifications both provide a
+**Message body** textarea. Bodies are plain text and support `{all_fields}`,
+`{form_title}` and `{entry_reference}`. Leave blank to send the accepted answers
+automatically. Example:
+
+```text
+Hello team,
+
+A new entry was received for {form_title}.
+
+{all_fields}
+
+Reference: {entry_reference}
+```
+
+Save in one editor and reopen in the other. Verify conditions/enabled state are
+preserved. Test the rendered body with the configured email transport before
+enabling real notifications. Templates are limited to 10,000 characters and
+expanded bodies to 100,000 characters; an expansion/delivery failure retains the
+entry and records failed notification status.
+
+### Advanced workspace checks
+
+Open `http://localhost:4333/_emdash/admin/plugins/quixforms-advanced`. Use
+**Add New** to search/filter templates, preview one, name the form and create a
+draft. Reopen it from the form library. Fields, Settings and Entries use the same
+Core record. The library search and counts cover loaded forms; use Load more to
+fetch additional pages.
+
+In Fields, add by click/drag, select a field, switch General/Advanced/Smart Logic,
+edit/reorder choices and use undo/redo. Test fullscreen and Escape. Ctrl/Cmd+S
+saves; Ctrl/Cmd+Z and Shift+Z undo/redo outside text inputs. Desktop/mobile preview
+can be completed/reset locally: this must create no entry or email.
+
+Settings has General, Notifications, Confirmations, Appearance, Spam Protection
+and Revisions sections. Verify changes survive switching sections and saving.
+Drafts autosave after valid edits; published forms require explicit saves. Publish
+and Unpublish must only change status after a successful Core save. A rejected
+save must preserve local edits. Undo must preserve publication status. Revision
+restoration blocks competing edits and reopens the restored definition as a draft.
+
+Embed shows the actual Astro import/component and a configuration checklist.
+Missing Turnstile keys must be reported accurately. Configuration presence does
+not establish working CAPTCHA/email delivery. Check keyboard focus inside the
+dialog and return to the opening button after Escape.
+
+### Focused sandboxed builder checks
+
+The Core overview now shows a forms table and counts for the current page only.
+It reports whether Turnstile keys are configured, without claiming verification
+or email delivery. Use **Open plugin settings** to configure the keys; no test
+bypass is enabled.
+
+Open a form, then use **Edit field** in its paginated field table. One field's
+options are shown at a time. Adding a field selects it, including across page
+boundaries. **Settings** contains the title, confirmation and appearance;
+**Notifications** retains its existing conditional editor. **Form outline** is a
+read-only admin outline, not a live visitor form or submission simulator.
+**Embed & setup** supplies the correct Astro component and a setup checklist.
+
+Test a Number field with minimum `1.5` and maximum `10`: save in Core, open its
+Advanced options in native React, and verify both limits. Save a new label in
+React, then reopen the field in Core. Clear an optional limit and verify that
+it is removed. A minimum above the maximum, non-finite limits, and stale-editor
+saves must leave the saved definition unchanged. On the public renderer,
+out-of-range answers must fail validation and create no entry.
+
+Deleting a field opens a confirmation. A field referenced by conditions cannot
+be removed until those references are changed. Existing entry snapshots remain
+untouched. Published forms display a warning because each saved edit affects
+the public definition immediately; a separate unpublished working copy remains
+an outstanding feature.
 
 - [ ] Core only: create a blank and template form; configure labels, choices, required flags, placeholder, widths, add/duplicate/delete/reorder fields. Test enough fields to cross editor pagination.
 - [ ] Configure nested AND/OR visibility and conditional-required rules. Test empty, numerical and choice conditions; confirm hidden required answers are not demanded or stored.
