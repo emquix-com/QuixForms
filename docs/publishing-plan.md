@@ -4,6 +4,11 @@ Prepared 2026-11-20 after reviewing the successful QuixSEO publishing chat and i
 
 ## Executed status — 2026-11-20
 
+**2026-11-21 update:** artwork-only 0.1.2 is published and passed registry
+assessment. Its featured banner and Forms icon render on the public listing;
+the public backend checksum is identical to 0.1.1. Full CI passed before upload.
+See the release report for image dimensions, blob IDs and checksum verification.
+
 Sandboxed 0.1.0 and the registry-ID integration correction **0.1.1 are published**.
 Both releases passed registry assessment. The public listing is
 [QuixForms by @emquix.com](https://plugins.emdashcms.com/plugins/@emquix.com/quixforms).

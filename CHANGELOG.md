@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.2 — registry artwork
+## 0.1.2 — registry artwork, published 2026-11-21
 
 Added the EmQuix Forms family icon and a wide QuixForms banner as declared release artifacts. No runtime behavior, permission or host compatibility changes. Renderer remains 0.1.1; other native companions remain 0.1.0.
 

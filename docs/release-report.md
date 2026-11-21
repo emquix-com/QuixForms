@@ -1,15 +1,34 @@
 # QuixForms release verification
 
-Updated 2026-11-20. **Sandboxed 0.1.1 is published and passed registry assessment and installation/update verification.** No npm package or GitHub release has been published. The historical acceptance gaps below remain separate from registry publication.
+Updated 2026-11-21. **Sandboxed 0.1.2 is published and passed registry assessment; the featured banner and Forms icon render on the public listing.** The previous 0.1.1 passed installation/update verification. No npm package or GitHub release has been published. The historical acceptance gaps below remain separate from registry publication.
 
-## 2026-11-21 registry artwork preparation
+## 2026-11-21 registry artwork release
 
-Prepared sandboxed 0.1.2 with the EmQuix Forms icon (256 × 256 PNG, 36,255 bytes)
+Published sandboxed 0.1.2 with the EmQuix Forms icon (256 × 256 PNG, 36,255 bytes)
 and featured banner (1536 × 512 WebP, 38,116 bytes). Verified the supported
 `release.artifacts.icon` and `release.artifacts.banner` contracts against the
 pinned official plugin CLI 0.13.4. These are release-scoped images, so 0.1.1
 must remain immutable. Form runtime source, permissions and host compatibility
-are unchanged. This preparation alone is not publication evidence.
+are unchanged. The complete [CI workflow passed](https://github.com/emquix-com/QuixForms/actions/runs/44911391984)
+on source `6f00cf8e124ec8f3e3c441030f5f1437eb0d9a5b`, including tests, bundle validation and acceptance-artifact assembly.
+
+- Release CID: `bafyreiafkxtexpobgejvmc2czjmgwiwnhvnfuornzcnqul75rnx4nzae3e`
+- Package blob CID: `bafkreihqywmfvwm2xbgmuhuojp2x2kzf5654x45j6vfmd7fbceebvimf6i`
+- Package SHA-256: `f0c5985ad99ab84cca1e8e4bf57d2b25efbbcbf3a9f54ac1fca111081aa185f2` (25,469 bytes)
+- Icon blob CID: `bafkreiccacgn3qtzlfux3nvehdv2zql635hljvzdvoaohgrwi6exus35im`
+- Banner blob CID: `bafkreiaie66s5tgcwjweggrmcl2li4acoh3b357gpvfx4zsm7othcos4am`
+
+Downloaded the real public package and both artwork blobs. Checksums and image
+dimensions match the source files. The public 0.1.2 backend is byte-for-byte
+identical to the public 0.1.1 backend: SHA-256
+`977546190826275a4f2e2b77195c5668d54136d4467a0a773528326743eb1e24`.
+Images are separate release blobs; the plugin package remains 24.9 KiB.
+The changelog profile update uses the supported `update-package` command.
+Both profile and release passed automated registry assessment. The registry
+reports 0.1.2 as latest. A real browser verified the public listing's banner
+image loaded and visually confirmed the featured image and Forms icon above
+the product description. The earlier 0.1.1 installation checks are not claimed
+as a separate 0.1.2 installation run; the public runtime checksum is identical.
 
 ## 2026-11-20 Windows local verification
 

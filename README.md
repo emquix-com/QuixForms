@@ -2,7 +2,7 @@
 
 **Powerful Forms. Effortless Building.** By [EmQuix](https://emquix.com). Free and MIT licensed.
 
-The sandboxed **[QuixForms 0.1.1](https://plugins.emdashcms.com/plugins/@emquix.com/quixforms)** is published in the EmDash registry. This repository contains the sandboxed backend and Block Kit editor, the optional free Advanced React editor, and the Astro renderer. Advanced and the renderer are separate source-installed packages. See the [release report](docs/release-report.md) for executed checks and remaining deployment limitations.
+The sandboxed **[QuixForms 0.1.2](https://plugins.emdashcms.com/plugins/@emquix.com/quixforms)** is published in the EmDash registry. This repository contains the sandboxed backend and Block Kit editor, the optional free Advanced React editor, and the Astro renderer. Advanced and the renderer are separate source-installed packages. See the [release report](docs/release-report.md) for executed checks and remaining deployment limitations.
 
 ## Develop
 
