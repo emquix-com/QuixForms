@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 — screenshot gallery
+
+- Added real screenshots of the sandboxed builder and submissions inbox.
+- Demonstration submissions use synthetic data; no runtime or permission changes.
+
 ## 0.1.2 — registry artwork
 
 - Added the EmQuix Forms family icon and a wide featured banner.

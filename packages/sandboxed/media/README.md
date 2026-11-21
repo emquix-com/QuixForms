@@ -5,6 +5,13 @@
 Both are declared under `release.artifacts` in the source manifest. The official
 CLI measures, hashes and uploads these images as release media.
 
+`sandbox-builder.webp` and `submissions-inbox.webp` are real screenshots from the
+disposable, registry-installed Core site. The Contact us demonstration form and
+three submissions were created through the actual UI/public renderer. Names and
+example.com addresses are synthetic. One entry was marked read and starred.
+Lossless WebP compression preserves the captured controls; no simulated UI or
+visitor data is used. These images appear in `release.artifacts.screenshots`.
+
 Created with the built-in image-generation tool from the approved Forms icon;
 optimized for delivery without adding frontend dependencies.
 

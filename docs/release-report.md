@@ -4,6 +4,20 @@ Updated 2026-11-21. **Sandboxed 0.1.2 is published and passed registry assessmen
 
 ## 2026-11-21 registry artwork release
 
+### Screenshot gallery preparation — 0.1.3
+
+Captured the actual sandboxed builder and submissions inbox on the disposable
+registry site. Created the Contact us form (`f_3d34ace32ebe451b98bd35dfb18939a7`)
+and submitted three synthetic example.com enquiries through its public renderer;
+the UI confirmed acceptance and the inbox retained all three. Marked one demo
+entry read and starred. Existing forms and entries were preserved.
+
+Gallery files are lossless WebP: builder 1280 × 720 (196,678 bytes), inbox
+1564 × 720 (130,034 bytes). They are separate release media, not runtime imports.
+No visitor data, Advanced editor or simulated controls appear in the captures.
+Manifest uses the pinned CLI's `release.artifacts.screenshots` contract. This
+preparation does not establish that the new gallery is published yet.
+
 Published sandboxed 0.1.2 with the EmQuix Forms icon (256 × 256 PNG, 36,255 bytes)
 and featured banner (1536 × 512 WebP, 38,116 bytes). Verified the supported
 `release.artifacts.icon` and `release.artifacts.banner` contracts against the

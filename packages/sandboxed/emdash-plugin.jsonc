@@ -53,7 +53,11 @@
     "requires": { "env:emdash": ">=1.3.1 <1.4.0" },
     "artifacts": {
       "icon": { "file": "./media/icon.png" },
-      "banner": { "file": "./media/banner.webp", "lang": "en" }
+      "banner": { "file": "./media/banner.webp", "lang": "en" },
+      "screenshots": [
+        { "file": "./media/sandbox-builder.webp", "lang": "en" },
+        { "file": "./media/submissions-inbox.webp", "lang": "en" }
+      ]
     }
   }
 }
