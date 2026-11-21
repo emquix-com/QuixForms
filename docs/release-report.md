@@ -18,6 +18,12 @@ No visitor data, Advanced editor or simulated controls appear in the captures.
 Manifest uses the pinned CLI's `release.artifacts.screenshots` contract. This
 preparation does not establish that the new gallery is published yet.
 
+The first gallery CI run passed unit/browser checks but hit the sandbox suite's
+five-second default timeout during the configured-CAPTCHA integration case,
+followed by D1 cleanup conflicts in the next case. The sandbox-only Vitest
+budget is now 30 seconds for cold workerd startup and multiple D1 roundtrips.
+Assertions remain unchanged and no retries or skipped tests were added.
+
 Published sandboxed 0.1.2 with the EmQuix Forms icon (256 × 256 PNG, 36,255 bytes)
 and featured banner (1536 × 512 WebP, 38,116 bytes). Verified the supported
 `release.artifacts.icon` and `release.artifacts.banner` contracts against the
