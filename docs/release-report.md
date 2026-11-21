@@ -23,6 +23,11 @@ five-second default timeout during the configured-CAPTCHA integration case,
 followed by D1 cleanup conflicts in the next case. The sandbox-only Vitest
 budget is now 30 seconds for cold workerd startup and multiple D1 roundtrips.
 Assertions remain unchanged and no retries or skipped tests were added.
+The next CI run exposed an independent startup failure: an empty manifest JSON
+binding in one worker. The pinned plugin-test config calls `buildPlugin` per
+worker and reads the shared plugin output directory immediately afterward.
+Sandbox files now run sequentially to avoid concurrent manifest writes/reads;
+the existing production-route assertions and per-host disposal remain intact.
 
 Published sandboxed 0.1.2 with the EmQuix Forms icon (256 × 256 PNG, 36,255 bytes)
 and featured banner (1536 × 512 WebP, 38,116 bytes). Verified the supported
