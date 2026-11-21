@@ -1,6 +1,6 @@
 {
   "name": "@emquix/quixforms-core-plugin",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "license": "MIT",
   "author": {
@@ -21,7 +21,8 @@
     "emdash-plugin.jsonc",
     "README.md",
     "LICENSE",
-    "docs"
+    "docs",
+    "media"
   ],
   "repository": {
     "type": "git",

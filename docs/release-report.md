@@ -2,6 +2,15 @@
 
 Updated 2026-11-20. **Sandboxed 0.1.1 is published and passed registry assessment and installation/update verification.** No npm package or GitHub release has been published. The historical acceptance gaps below remain separate from registry publication.
 
+## 2026-11-21 registry artwork preparation
+
+Prepared sandboxed 0.1.2 with the EmQuix Forms icon (256 × 256 PNG, 36,255 bytes)
+and featured banner (1536 × 512 WebP, 38,116 bytes). Verified the supported
+`release.artifacts.icon` and `release.artifacts.banner` contracts against the
+pinned official plugin CLI 0.13.4. These are release-scoped images, so 0.1.1
+must remain immutable. Form runtime source, permissions and host compatibility
+are unchanged. This preparation alone is not publication evidence.
+
 ## 2026-11-20 Windows local verification
 
 ### First sandboxed publication

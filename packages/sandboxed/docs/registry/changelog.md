@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2 — registry artwork
+
+- Added the EmQuix Forms family icon and a wide featured banner.
+- Branding only: form behavior, permissions and host compatibility are unchanged.
+
 ## 0.1.1 — registry renderer connection
 
 - Embed instructions use EmDash's actual installed plugin ID.
