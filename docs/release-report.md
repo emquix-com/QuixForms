@@ -2,9 +2,14 @@
 
 Updated 2026-11-21. **Sandboxed 0.1.2 is published and passed registry assessment; the featured banner and Forms icon render on the public listing.** The previous 0.1.1 passed installation/update verification. No npm package or GitHub release has been published. The historical acceptance gaps below remain separate from registry publication.
 
-## 2026-11-21 registry artwork release
+**Screenshot update:** 0.1.3 and its two gallery images are uploaded and verified,
+but the registry assessment ended in `error` / `required-coverage-unavailable`.
+The public gallery is not yet verified as visible. The public assessment reports
+complete text, link and media coverage with zero findings. An EmDash registry
+operator needs to rerun the exact release assessment; the pinned publisher CLI
+does not expose that operator action. Do not overwrite 0.1.3 to retry it.
 
-### Screenshot gallery preparation — 0.1.3
+## 2026-11-21 screenshot gallery — 0.1.3
 
 Captured the actual sandboxed builder and submissions inbox on the disposable
 registry site. Created the Contact us form (`f_3d34ace32ebe451b98bd35dfb18939a7`)
@@ -15,8 +20,32 @@ entry read and starred. Existing forms and entries were preserved.
 Gallery files are lossless WebP: builder 1280 × 720 (196,678 bytes), inbox
 1564 × 720 (130,034 bytes). They are separate release media, not runtime imports.
 No visitor data, Advanced editor or simulated controls appear in the captures.
-Manifest uses the pinned CLI's `release.artifacts.screenshots` contract. This
-preparation does not establish that the new gallery is published yet.
+Manifest uses the pinned CLI's `release.artifacts.screenshots` contract.
+
+Published after the [full CI workflow passed](https://github.com/emquix-com/QuixForms/actions/runs/44913162549)
+on `127ddd5a213cc240f1ae8e8bfb7a7613c47e0d3e`. All eight official sandbox
+checks also passed locally with the harness isolation changes below.
+
+- Release CID: `bafyreidfur6fwxro3r2qq33jjklzsns36nr37kup32wuhxsdvjqkq52qmm`
+- Package blob CID: `bafkreifodq5wyhj2k44owiopxef6eun5coozihlbxxzryog52gxpihkxpu`
+- Package SHA-256: `ae1c3b6c1d3a5738eb21cfb90be251bd139d941d61bdf31c38ddd1aef41d577d` (25,465 bytes)
+- Builder screenshot CID: `bafkreiat22mugd6y66bfv6fv7fvwudsbu2fvy4bxptut4cyznn2pzhaqmm`
+- Inbox screenshot CID: `bafkreiage55do6zyfookfvgjuvrrtagsnbleim5l6tcvonqjjb3dora5fu`
+
+Downloaded the public archive and all four media blobs. Their sizes, dimensions
+and checksums match the local files; gallery order is builder then inbox. The
+public backend checksum still matches 0.1.1/0.1.2 exactly. The runtime package
+remains 24.9 KiB. No immutable release was overwritten.
+
+Assessment ID: `assessment-v1-dd40e80198e572c244b1b0de3b1b42427d9782c31f02033c6adb7bc1655ea220`.
+The profile passed; the release received `listing-error` at
+`2026-11-21T14:24:05.711Z`. Inspected the official labeler public-assessment,
+policy and operator API sources: the public reason means a required stage could
+not complete; `rerun` is an authenticated operator action. No moderation bypass,
+replacement release, public support message or operator mutation was attempted.
+See [registry-gallery-handoff.md](registry-gallery-handoff.md) for a ready-to-use
+operator request. The actual 0.1.1-based screenshot demo remains on the disposable
+registry site and the approved 0.1.2 listing remains available.
 
 The first gallery CI run passed unit/browser checks but hit the sandbox suite's
 five-second default timeout during the configured-CAPTCHA integration case,
@@ -28,6 +57,8 @@ binding in one worker. The pinned plugin-test config calls `buildPlugin` per
 worker and reads the shared plugin output directory immediately afterward.
 Sandbox files now run sequentially to avoid concurrent manifest writes/reads;
 the existing production-route assertions and per-host disposal remain intact.
+
+## 2026-11-21 registry artwork release — 0.1.2
 
 Published sandboxed 0.1.2 with the EmQuix Forms icon (256 × 256 PNG, 36,255 bytes)
 and featured banner (1536 × 512 WebP, 38,116 bytes). Verified the supported

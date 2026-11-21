@@ -4,6 +4,12 @@ Prepared 2026-11-20 after reviewing the successful QuixSEO publishing chat and i
 
 ## Executed status — 2026-11-20
 
+**Screenshot gallery:** 0.1.3 and both real screenshots are uploaded and verified,
+with full CI passing. Public visibility is blocked by the registry's
+`required-coverage-unavailable` assessment error, not a local test or upload
+failure. Version 0.1.2 is still the approved public release. An EmDash operator
+rerun is needed; [request details](registry-gallery-handoff.md) are prepared.
+
 **2026-11-21 update:** artwork-only 0.1.2 is published and passed registry
 assessment. Its featured banner and Forms icon render on the public listing;
 the public backend checksum is identical to 0.1.1. Full CI passed before upload.

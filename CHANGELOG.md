@@ -4,6 +4,8 @@
 
 Added real screenshots of the sandboxed form builder and submissions inbox using synthetic data on a disposable registry-installed EmDash site. No runtime, permission or host compatibility changes.
 
+Uploaded and verified; public listing approval is blocked by a registry assessment error (`required-coverage-unavailable`). See the release report and operator handoff. Version 0.1.2 remains the approved listing.
+
 ## 0.1.2 — registry artwork, published 2026-11-21
 
 Added the EmQuix Forms family icon and a wide QuixForms banner as declared release artifacts. No runtime behavior, permission or host compatibility changes. Renderer remains 0.1.1; other native companions remain 0.1.0.
